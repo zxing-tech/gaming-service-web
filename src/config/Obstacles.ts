@@ -1,6 +1,8 @@
 import { getAssetPath } from '../utils/assetPath';
 
-const keeperTextureUrl = getAssetPath('/assets/keeper/wall.png');
+const keeperTextureUrl = getAssetPath('/assets/keeper/goalkeeper-save-center.png');
+const keeperWallWidth = 2.0;
+const keeperWallHeight = 2.9;
 const woodTextureUrl = getAssetPath('/assets/models/obstacle/wood.jpg');
 const whiteDroneTextureUrl = getAssetPath('/assets/models/obstacle/whiteDrone.png');
 const cokeModelUrl = getAssetPath('/assets/models/bottle/coke.glb');
@@ -169,7 +171,7 @@ export const OBSTACLE_BLUEPRINTS: Record<string, ObstacleBlueprint> = {
     render: {
       kind: 'primitive',
       shape: 'plane',
-      size: { x: 0.6, y: 1.6 },
+      size: { x: keeperWallWidth, y: keeperWallHeight },
       material: {
         textureUrl: keeperTextureUrl,
         doubleSided: true,
@@ -180,10 +182,10 @@ export const OBSTACLE_BLUEPRINTS: Record<string, ObstacleBlueprint> = {
     },
     collider: {
       shape: 'box',
-      size: { x: 0.6, y: 1.6, z: 0.6 }
+      size: { x: 1.95, y: 2.6, z: 0.45 }
     },
     defaultTransform: {
-      position: { y: 0.8 }
+      position: { y: 1.0 }
     }
   },
   woodVertical: {

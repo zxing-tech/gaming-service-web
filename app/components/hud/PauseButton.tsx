@@ -12,7 +12,7 @@ export function PauseButton() {
   return (
     <button
       id="pause-button"
-      title="일시정지"
+      title="Pause"
       onClick={handleClick}
       className={`
         absolute bottom-4 left-4

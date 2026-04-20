@@ -4,6 +4,20 @@
 
 export const GAME_CONFIG = {
   /**
+   * 세션 규칙 설정
+   */
+  session: {
+    /** 총 라이프 수 (미스 시 1개 차감) */
+    totalLives: 2,
+    /** 탑프라이즈 달성 점수 */
+    topPrizePoints: 10,
+    /** 유휴 상태 자동 종료 시간 (ms) */
+    idleTimeoutMs: 60_000,
+    /** 게임 전체에서 고정으로 사용할 표준 난이도 기준 점수 */
+    standardDifficultyScore: 1,
+  },
+
+  /**
    * 바운스 사운드 재생 설정
    */
   bounceSound: {
@@ -27,7 +41,7 @@ export const GAME_CONFIG = {
    * 게임오버 설정
    */
   gameOver: {
-    /** 게임오버까지 허용되는 최대 실패 횟수 */
+    /** 게임오버까지 허용되는 최대 실패 횟수 (3 라이프 기준 2 미스 이후 마지막 미스에서 종료) */
     maxFailsAllowed: 2,
   },
 

@@ -12,16 +12,16 @@ import { StyledIconButton } from '@/components/common/StyledIconButton';
 import { ArrowClockwise, Ranking, Palette, ShareNetwork } from '@phosphor-icons/react';
 
 const SHARE_MESSAGES = [
-  '스냅슛⚽️ {score}점! 따라올테면 따라와봐~!\n\n따라가기... 👇',
-  '스냅슛⚽️ {score}점! 넌 나한테 안 되지...\n\n도전은 웰컴이야~ 👇',
-  '오늘 에임 미쳤다... 스냅슛⚽️ {score}점 나옴...\n\n나도 슈팅하기 👇',
-  '푸스카스급 감차가능ㅋㅋ 스냅슛⚽️ {score}점 찍음!\n\n푸스카스상 받기 👇'
+  'SnapShoot ⚽️ {score} points! Think you can beat me?\n\nTry now 👇',
+  'SnapShoot ⚽️ {score} points! Your turn to challenge me 👇',
+  'Locked in today... scored {score} in SnapShoot ⚽️\n\nPlay now 👇',
+  'Curler master mode ON 😎 SnapShoot ⚽️ {score} points!\n\nTake your shot 👇'
 ] as const;
 
 export function getRandomShareMessage(score: number): string {
   const randomIndex = Math.floor(Math.random() * SHARE_MESSAGES.length);
   const template = SHARE_MESSAGES[randomIndex];
-  return template.replace('{score}', score.toLocaleString('ko-KR'));
+  return template.replace('{score}', score.toLocaleString('en-US'));
 }
 
 export function GameOverModal() {
@@ -57,7 +57,7 @@ export function GameOverModal() {
         const scheme = environment === 'production' ? 'intoss' : 'intoss-private';
         const deepLink = `${scheme}://snapshoot?score=${currentScore}`;
 
-        console.log(`📤 공유 시작 (토스 앱) - 환경: ${environment}, 딥링크: ${deepLink}`);
+      console.log(`📤 Share started (Toss app) - env: ${environment}, deepLink: ${deepLink}`);
 
         const { getTossShareLink, share } = await import('@apps-in-toss/web-framework');
         const tossShareLink = await getTossShareLink(deepLink);
@@ -65,35 +65,35 @@ export function GameOverModal() {
           message: `${message}\\n${tossShareLink}`
         });
 
-        console.log('✅ 공유 성공! (토스 앱)');
+        console.log('✅ Share successful! (Toss app)');
       } else {
         // 웹: GitHub Pages 링크 사용
         const webLink = 'https://inticoy.github.io/snapshoot';
         const shareText = `${message}\\n${webLink}`;
 
-        console.log(`📤 공유 시작 (웹) - 링크: ${webLink}`);
+        console.log(`📤 Share started (web) - link: ${webLink}`);
 
         // Web Share API 사용 가능 여부 확인
         if (navigator.share) {
           await navigator.share({
             text: shareText
           });
-          console.log('✅ 공유 성공! (Web Share API)');
+          console.log('✅ Share successful! (Web Share API)');
         } else {
           // Web Share API 미지원 시 클립보드 복사
           await navigator.clipboard.writeText(shareText);
-          showToast.success('공유 메시지가 클립보드에 복사되었습니다!\\n원하는 곳에 붙여넣기 해주세요.');
-          console.log('✅ 클립보드 복사 완료!');
+          showToast.success('Share message copied to clipboard!\\nPaste it anywhere you like.');
+          console.log('✅ Clipboard copy complete!');
         }
       }
     } catch (error) {
-      console.error('❌ 공유 실패:', error);
+      console.error('❌ Share failed:', error);
       if (error instanceof Error) {
         if (error.message.includes('cancel') || error.name === 'AbortError') {
-          console.log('ℹ️ 사용자가 공유를 취소했습니다.');
+          console.log('ℹ️ User canceled sharing.');
         } else {
-          console.error('공유 오류:', error.message);
-          showToast.error('공유 중 오류가 발생했습니다.\\n다시 시도해주세요.');
+          console.error('Share error:', error.message);
+          showToast.error('An error occurred while sharing.\\nPlease try again.');
         }
       }
     }
@@ -102,31 +102,31 @@ export function GameOverModal() {
   const handleRanking = async () => {
     // 게임센터가 비활성화되어 있으면 안내 메시지 표시
     if (!TOSS_CONFIG.GAME_CENTER_ENABLED) {
-      console.warn('ℹ️ 게임센터 기능이 아직 활성화되지 않았습니다.');
-      showToast.info('랭킹 기능은 준비 중입니다.\\n조금만 기다려주세요!');
+      console.warn('ℹ️ Game Center is not enabled yet.');
+      showToast.info('Ranking is coming soon.\\nPlease check back later!');
       return;
     }
 
     // 토스 앱 환경이 아니면 경고 메시지 표시
     if (!isTossGameCenterAvailable()) {
-      console.warn('ℹ️ 랭킹 기능은 토스 앱에서만 사용 가능합니다.');
-      showToast.info('랭킹 기능은 토스 앱에서만 사용 가능합니다.\\n토스 앱에서 게임을 실행해주세요!');
+      console.warn('ℹ️ Ranking is only available in the Toss app.');
+      showToast.info('Ranking is only available in the Toss app.\\nPlease run the game in Toss.');
       return;
     }
 
     try {
       const { openGameCenterLeaderboard } = await import('@apps-in-toss/web-framework');
       await openGameCenterLeaderboard();
-      console.log('✅ 토스 게임센터 리더보드 열기');
+      console.log('✅ Opened Toss Game Center leaderboard');
     } catch (error) {
-      console.error('❌ 리더보드 열기 실패:', error);
+      console.error('❌ Failed to open leaderboard:', error);
     }
   };
 
   return (
     <Modal isOpen={isOpen} closeOnEsc={false} closeOnBackdrop={false}>
       <ModalHeader 
-        title={view === 'gameOver' ? 'GAME OVER' : '테마 변경'}
+        title={view === 'gameOver' ? 'GAME OVER' : 'Theme'}
         onBack={view !== 'gameOver' ? () => setView('gameOver') : undefined}
       />
       
@@ -135,7 +135,7 @@ export function GameOverModal() {
           <>
             {/* Score Display */}
             <div className="flex flex-col items-center gap-2 py-8 animate-fade-in">
-              <div className="text-white/70 font-semibold text-sm uppercase tracking-wider">최종 점수</div>
+              <div className="text-white/70 font-semibold text-sm uppercase tracking-wider">Final Score</div>
               <div className="text-white font-russo font-black tracking-tight drop-shadow-lg text-[clamp(48px,10vw,72px)]">
                 {score.toLocaleString()}
               </div>
@@ -145,19 +145,19 @@ export function GameOverModal() {
             <div className="flex gap-6 w-full max-w-lg justify-center">
               <StyledIconButton 
                 Icon={Ranking} 
-                label="랭킹보기" 
+                label="Ranking" 
                 variant="ranking"
                 onClick={handleRanking} 
               />
               <StyledIconButton 
                 Icon={Palette} 
-                label="테마 변경" 
+                label="Theme" 
                 variant="theme"
                 onClick={() => setView('customize')} 
               />
               <StyledIconButton 
                 Icon={ShareNetwork} 
-                label="공유하기" 
+                label="Share" 
                 variant="share"
                 onClick={handleShare} 
               />
@@ -191,7 +191,7 @@ export function GameOverModal() {
             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/30 to-transparent pointer-events-none"></div>
             <div className="relative z-[2] flex items-center gap-2">
               <ArrowClockwise weight="fill" className="text-2xl drop-shadow-md group-active:scale-90 transition-transform" />
-              <span>다시하기</span>
+              <span>Restart</span>
             </div>
           </button>
         </ModalFooter>

@@ -5,6 +5,13 @@
  * 모든 게임 설정과 사용자 데이터를 관리합니다.
  */
 
+import {
+  DEFAULT_TIER_ID,
+  clampTierToUnlocked,
+  getUnlockedTierByBestScore,
+  type TierId
+} from '../config/TierDifficulty';
+
 /**
  * localStorage 키 상수
  */
@@ -16,6 +23,7 @@ const STORAGE_KEYS = {
 
   // 게임 데이터
   BEST_SCORE: 'snapshoot.bestScore',
+  SELECTED_TIER: 'snapshoot.selectedTier',
 
   // 테마 설정
   BALL_THEME: 'snapshoot.theme.ball',
@@ -80,7 +88,7 @@ export class GameStateService {
    */
   getMusicEnabled(): boolean {
     const value = this.getItem(STORAGE_KEYS.MUSIC_ENABLED);
-    return value === null ? true : value === 'true';
+    return value === null ? false : value === 'true';
   }
 
   /**
@@ -174,6 +182,45 @@ export class GameStateService {
    */
   setBestScore(score: number): void {
     this.setItem(STORAGE_KEYS.BEST_SCORE, String(Math.max(0, score)));
+  }
+
+  /**
+   * 베스트 스코어 기준 현재 잠금 해제된 최대 티어
+   */
+  getUnlockedTier(): TierId {
+    return getUnlockedTierByBestScore(this.getBestScore());
+  }
+
+  /**
+   * 사용자가 선택한 티어 가져오기
+   */
+  getSelectedTier(): TierId {
+    const value = this.getItem(STORAGE_KEYS.SELECTED_TIER);
+    if (value === null) return DEFAULT_TIER_ID;
+    const parsed = Number(value);
+    if (parsed === 1 || parsed === 2 || parsed === 3) {
+      return parsed;
+    }
+    return DEFAULT_TIER_ID;
+  }
+
+  /**
+   * 선택 티어 저장 (잠금 해제 범위를 넘으면 자동으로 보정)
+   */
+  setSelectedTier(tierId: TierId): TierId {
+    const unlockedTier = this.getUnlockedTier();
+    const clamped = clampTierToUnlocked(tierId, unlockedTier);
+    this.setItem(STORAGE_KEYS.SELECTED_TIER, String(clamped));
+    return clamped;
+  }
+
+  /**
+   * 실제 세션에 적용할 티어 (선택값과 잠금해제 범위 반영)
+   */
+  getEffectiveTier(): TierId {
+    const selectedTier = this.getSelectedTier();
+    const unlockedTier = this.getUnlockedTier();
+    return clampTierToUnlocked(selectedTier, unlockedTier);
   }
 
   // ==================== 테마 설정 ====================

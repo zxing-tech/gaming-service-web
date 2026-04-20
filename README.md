@@ -11,6 +11,16 @@
   />
 </a>
 
+## About The Game
+
+SnapShoot is a fast arcade football (soccer) game where you flick the ball upward to shoot and score.
+You get one-touch sessions that are easy to start but hard to master.
+
+- **Goal**: Keep scoring as long as possible without missing.
+- **Controls**: Swipe up to shoot, adjust angle and speed with your finger movement.
+- **Challenge**: As your score increases, gameplay gets harder with tougher keeper behavior and obstacle patterns.
+- **Progression**: Unlock cosmetic themes and chase higher scores on the leaderboard.
+
 ## Tech Stack
 
 - **Frontend Framework**: Next.js
@@ -66,7 +76,7 @@ The game automatically detects whether it's running in:
 - **Web Browser** (inticoy.github.io): Standard gameplay with localStorage
 
 ### 1. Leaderboard (Toss App Only)
-- View global rankings by clicking "랭킹보기" button in Game Over modal
+- View global rankings from the Game Over modal
 - Scores are automatically submitted to Toss Game Center when you score
 - Web browser users will see an alert explaining this is a Toss App-only feature
 

@@ -7,14 +7,14 @@ import Image from 'next/image';
 import { getAssetPath } from '@/../src/utils/assetPath';
 
 const FOOTBALL_MESSAGES = [
-  '양말 신는 중...',
-  '축구화 끈 묶는 중...',
-  '정강이 보호대 착용 중...',
-  '유니폼 입는 중...',
-  '스트레칭 하는 중...',
-  '잔디 맛보는 중...',
-  '상대와 기싸움하는 중...',
-  '심판과 악수 중...',
+  'Putting on socks...',
+  'Tying football boots...',
+  'Wearing shin guards...',
+  'Putting on the kit...',
+  'Stretching...',
+  'Checking the pitch...',
+  'Getting into game mode...',
+  'Greeting the referee...',
 ];
 
 export function LoadingScreen() {
@@ -147,14 +147,9 @@ export function LoadingScreen() {
         className="loading-screen__title mb-20 text-center animate-fade-in-down-large transition-all duration-800 ease-out"
         style={{ transform: titleTransform, opacity: titleTransform ? 0 : 1 }}
       >
-        <Image
-          src={getAssetPath('/assets/Snapshoot.png')}
-          alt="Snapshoot!"
-          width={500}
-          height={200}
-          className="loading-screen__title-text mx-6 w-[80vw] max-w-[500px] h-auto"
-          priority
-        />
+        <h1 className="mx-6 text-[48px] leading-none font-extrabold tracking-tight text-white [text-shadow:0_4px_14px_rgba(0,0,0,0.25)]">
+          FreeKick!
+        </h1>
       </div>
 
       {/* Stage 1: Progress */}
@@ -187,7 +182,7 @@ export function LoadingScreen() {
         onClick={handleTap}
       >
         <div className="text-[20px] font-bold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.2)] animate-pulse font-chiron">
-          아무 곳이나 터치하세요
+         Tap to Start
         </div>
       </div>
 
@@ -208,7 +203,7 @@ export function LoadingScreen() {
           }}
         />
         <div className="animate-pulse whitespace-nowrap text-center text-[20px] font-bold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.2)] font-chiron">
-          위로 스와이프해 스냅슛!
+          Swipe up to Start
         </div>
       </div>
 

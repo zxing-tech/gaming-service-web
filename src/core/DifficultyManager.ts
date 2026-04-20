@@ -10,10 +10,11 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { Obstacle } from '../entities/Obstacle';
-import { getDifficultyForScore, composeObstacles, type DifficultyLevelConfig } from '../config/Difficulty';
+import { composeObstacles, getDifficultyForScore, type DifficultyLevelConfig } from '../config/Difficulty';
 import { getObstacleBlueprint } from '../config/Obstacles';
 import type { ObstacleBlueprint, ObstacleInstanceConfig } from '../config/Obstacles';
 import { CategoryLogger } from '../utils/Logger';
+import { DEFAULT_TIER_ID, getTierConfig, type TierId } from '../config/TierDifficulty';
 
 /**
  * DifficultyManager 생성자 매개변수
@@ -34,11 +35,33 @@ export class DifficultyManager {
 
   private obstacles: Obstacle[] = [];
   private currentDifficulty: DifficultyLevelConfig | null = null;
+  private currentTier: TierId = DEFAULT_TIER_ID;
+  private readonly goalkeeperConfig: ObstacleInstanceConfig = {
+    blueprintId: 'keeperWall',
+    transform: {
+      position: { x: 0, y: 1.0, z: -5.25 },
+    },
+    behavior: {
+      type: 'patrol',
+      axis: 'x',
+      range: [-1.45, 1.45],
+      speed: 1.8,
+      waveform: 'sine',
+    },
+  };
 
   constructor(config: DifficultyManagerConfig) {
     this.scene = config.scene;
     this.world = config.world;
     this.gameLog = config.gameLog;
+  }
+
+  public setTier(tierId: TierId): void {
+    this.currentTier = tierId;
+  }
+
+  public getTier(): TierId {
+    return this.currentTier;
   }
 
   /**
@@ -58,23 +81,56 @@ export class DifficultyManager {
   /**
    * 난이도 업데이트 (점수에 따라 자동 조정)
    */
-  public updateDifficulty(score: number, forceRefresh = false): void {
-    const nextDifficulty = getDifficultyForScore(score);
+  public updateDifficulty(_score: number, forceRefresh = false): void {
+    const tierConfig = getTierConfig(this.currentTier);
+    const nextDifficulty = getDifficultyForScore(tierConfig.difficultyAnchorScore);
     const levelChanged = this.currentDifficulty !== nextDifficulty;
 
     if (forceRefresh || levelChanged) {
-      // composition이 있으면 composeObstacles로 장애물 생성, 없으면 obstacles 사용
-      const obstacles = nextDifficulty.composition
-        ? composeObstacles(nextDifficulty.composition)
-        : (nextDifficulty.obstacles ?? []);
+      const goalkeeperConfig: ObstacleInstanceConfig = {
+        ...this.goalkeeperConfig,
+        behavior: {
+          type: 'patrol',
+          axis: 'x',
+          range: [...tierConfig.keeperPatrolRange],
+          speed: tierConfig.keeperPatrolSpeed,
+          waveform: 'sine',
+        },
+      };
 
-      this.syncObstacles(obstacles);
+      const configs: ObstacleInstanceConfig[] = [goalkeeperConfig];
+      const levelObstacles = this.extractLevelObstacles(nextDifficulty)
+        .filter((obstacle) => obstacle.blueprintId !== 'keeperWall');
+
+      if (tierConfig.additionalObstacleCount > 0 && levelObstacles.length > 0) {
+        const selected = levelObstacles.slice(0, tierConfig.additionalObstacleCount);
+        configs.push(...selected);
+      }
+
+      this.syncObstacles(configs);
       if (levelChanged) {
-        this.gameLog.info(`🎯 난이도 변경: ${nextDifficulty.name} (score=${score})`);
+        this.gameLog.info(
+          `🧤 Tier ${tierConfig.tierId}(${tierConfig.difficultyName}) applied with ${configs.length} obstacle(s)`
+        );
       }
     }
 
     this.currentDifficulty = nextDifficulty;
+  }
+
+  private extractLevelObstacles(level: DifficultyLevelConfig): ObstacleInstanceConfig[] {
+    if (level.obstacles && level.obstacles.length > 0) {
+      return level.obstacles.map((obstacle) => ({
+        ...obstacle,
+        transform: obstacle.transform ? { ...obstacle.transform } : undefined,
+        collider: obstacle.collider ? { ...obstacle.collider } : undefined,
+        behavior: obstacle.behavior ? { ...obstacle.behavior } : undefined,
+      }));
+    }
+    if (level.composition) {
+      return composeObstacles(level.composition);
+    }
+    return [];
   }
 
   /**

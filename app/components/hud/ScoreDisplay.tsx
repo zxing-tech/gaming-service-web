@@ -7,6 +7,7 @@ export function ScoreDisplay() {
 
   const [bestScore, setBestScore] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
+  const [lives, setLives] = useState({ remaining: 2, total: 2 });
   const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -31,6 +32,10 @@ export function ScoreDisplay() {
         bestEl.classList.remove('animate-best-score-pop');
       }, 800);
     }
+  });
+
+  useGameEvent('LIVES_CHANGED', (event) => {
+    setLives({ remaining: event.livesRemaining, total: event.totalLives });
   });
 
   const animateScore = (from: number, to: number) => {
@@ -102,6 +107,9 @@ export function ScoreDisplay() {
         id="scoreboard-container"
         className="pointer-events-none absolute top-[12%] left-1/2 -translate-x-1/2 flex flex-col items-center justify-center w-[148px] px-6 py-4 rounded-[24px] border border-white/10 bg-[#00000099] shadow-[0_12px_28px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.08),inset_0_-1px_0_rgba(0,0,0,0.35)] transition-all duration-300 landscape-xs:w-[140px] landscape-xs:px-5 landscape-xs:py-3"
       >
+        <div className="mb-1 font-montserrat text-xs font-bold uppercase tracking-[0.16em] text-white/75 landscape-xs:text-[10px]">
+          Lives {lives.remaining}/{lives.total}
+        </div>
         <div className="font-montserrat text-[72px] font-black tracking-wide leading-none text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.7)] landscape-xs:text-[32px]">
           {displayScore}
         </div>

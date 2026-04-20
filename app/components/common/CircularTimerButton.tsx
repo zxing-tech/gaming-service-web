@@ -55,7 +55,7 @@ export function CircularTimerButton({ duration, onComplete, onClick, size = 120 
       onClick={onClick}
       className="relative rounded-full flex items-center justify-center group active:scale-95 transition-transform duration-150"
       style={{ width: size, height: size }}
-      aria-label="이어하기 버튼"
+      aria-label="Continue button"
     >
       {/* Background Circle */}
       <svg 
@@ -91,7 +91,7 @@ export function CircularTimerButton({ duration, onComplete, onClick, size = 120 
         style={{ width: size - 16, height: size - 16 }}
       >
         <Play weight="fill" className="text-4xl text-white drop-shadow-md ml-1" aria-hidden="true" />
-        <span className="text-white font-bold text-sm mt-1">이어하기</span>
+        <span className="text-white font-bold text-sm mt-1">Continue</span>
       </div>
       
       {/* Pulse Effect */}

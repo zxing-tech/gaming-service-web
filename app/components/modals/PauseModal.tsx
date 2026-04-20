@@ -18,7 +18,6 @@ export function PauseModal() {
   const [view, setView] = useState<'pause' | 'settings' | 'customize'>('pause');
   
   // Audio Settings State
-  const [musicEnabled, setMusicEnabled] = useState(true);
   const [sfxEnabled, setSfxEnabled] = useState(true);
   const [masterVolume, setMasterVolume] = useState(1);
 
@@ -28,7 +27,6 @@ export function PauseModal() {
       setView('pause');
       // Load current audio settings
       const settings = gameStateService.getAudioSettings();
-      setMusicEnabled(settings.musicEnabled);
       setSfxEnabled(settings.sfxEnabled);
       setMasterVolume(settings.masterVolume);
       
@@ -56,12 +54,6 @@ export function PauseModal() {
   };
 
   // Audio Handlers
-  const toggleMusic = (enabled: boolean) => {
-    setMusicEnabled(enabled);
-    gameStateService.setMusicEnabled(enabled);
-    gameEventBus.emit({ type: 'MUSIC_ENABLED_CHANGED', enabled });
-  };
-
   const toggleSfx = (enabled: boolean) => {
     setSfxEnabled(enabled);
     gameStateService.setSfxEnabled(enabled);
@@ -77,32 +69,32 @@ export function PauseModal() {
   const handleRanking = async () => {
     // 게임센터가 비활성화되어 있으면 안내 메시지 표시
     if (!TOSS_CONFIG.GAME_CENTER_ENABLED) {
-      console.warn('ℹ️ 게임센터 기능이 아직 활성화되지 않았습니다.');
-      showToast.info('랭킹 기능은 준비 중입니다.\\n조금만 기다려주세요!');
+      console.warn('ℹ️ Game Center is not enabled yet.');
+      showToast.info('Ranking is coming soon.\\nPlease check back later!');
       return;
     }
 
     // 토스 앱 환경이 아니면 경고 메시지 표시
     if (!isTossGameCenterAvailable()) {
-      console.warn('ℹ️ 랭킹 기능은 토스 앱에서만 사용 가능합니다.');
-      showToast.info('랭킹 기능은 토스 앱에서만 사용 가능합니다.\\n토스 앱에서 게임을 실행해주세요!');
+      console.warn('ℹ️ Ranking is only available in the Toss app.');
+      showToast.info('Ranking is only available in the Toss app.\\nPlease run the game in Toss.');
       return;
     }
 
     try {
       const { openGameCenterLeaderboard } = await import('@apps-in-toss/web-framework');
       await openGameCenterLeaderboard();
-      console.log('✅ 토스 게임센터 리더보드 열기');
+      console.log('✅ Opened Toss Game Center leaderboard');
     } catch (error) {
-      console.error('❌ 리더보드 열기 실패:', error);
+      console.error('❌ Failed to open leaderboard:', error);
     }
   };
 
   const getTitle = () => {
     switch (view) {
-      case 'pause': return '일시정지';
-      case 'settings': return '설정';
-      case 'customize': return '테마 변경';
+      case 'pause': return 'Paused';
+      case 'settings': return 'Settings';
+      case 'customize': return 'Theme';
     }
   };
 
@@ -118,19 +110,19 @@ export function PauseModal() {
           <div className="flex gap-6 w-full max-w-lg justify-center">
             <StyledIconButton 
               Icon={Ranking} 
-              label="랭킹보기" 
+              label="Ranking" 
               variant="ranking"
               onClick={handleRanking}
             />
             <StyledIconButton 
               Icon={Palette} 
-              label="테마 변경" 
+              label="Theme" 
               variant="theme"
               onClick={() => setView('customize')} 
             />
             <StyledIconButton 
               Icon={Gear} 
-              label="설정" 
+              label="Settings" 
               variant="settings"
               onClick={() => setView('settings')} 
             />
@@ -140,12 +132,7 @@ export function PauseModal() {
         {view === 'settings' && (
           <div className="w-full max-w-md flex flex-col gap-4">
             <ToggleSection 
-              label="배경음악" 
-              checked={musicEnabled} 
-              onChange={toggleMusic} 
-            />
-            <ToggleSection 
-              label="효과음" 
+              label="SFX" 
               checked={sfxEnabled} 
               onChange={toggleSfx} 
             />
@@ -224,7 +211,7 @@ function VolumeSection({ volume, onChange }: { volume: number; onChange: (v: num
   return (
     <div className="w-full flex flex-col gap-2 py-3">
       <div className="flex items-center justify-between">
-        <div className="text-white/90 font-medium">마스터 볼륨</div>
+        <div className="text-white/90 font-medium">Master Volume</div>
         <div className="text-white/90 font-medium">{Math.round(volume * 100)}%</div>
       </div>
       <input 

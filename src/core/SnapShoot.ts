@@ -11,7 +11,6 @@ import { BallController } from '../entities/ball/BallController';
 import { Goal } from '../entities/goal/Goal';
 import { BALL_THEMES } from '../config/Ball';
 import { GOAL_DEPTH } from '../config/Goal';
-import type { DifficultyLevelConfig } from '../config/Difficulty';
 
 import { AudioManager } from '../infra/Audio';
 
@@ -32,6 +31,17 @@ import { DifficultyManager } from './DifficultyManager';
 import { AssetLoader } from './AssetLoader';
 import { gameEventBus } from '../../app/lib/gameEventBus';
 import { gameStateService } from './GameStateService';
+import {
+  DEFAULT_TIER_ID,
+  getTierConfig,
+  type TierDifficultyConfig,
+  type TierId
+} from '../config/TierDifficulty';
+import {
+  buildPrizeAwardResult,
+  resolvePrizeTierConfig,
+  type PrizeTierConfig
+} from '../config/PrizeTiers';
 
 export class SnapShoot {
   private readonly onScoreChange: (score: number) => void;
@@ -62,7 +72,6 @@ export class SnapShoot {
   private score = 0;
   private shotResetTimer: number | null = null;
   private failCount = 0; // 현재 게임에서 실패한 횟수
-  private savedGameState?: { score: number; difficulty: DifficultyLevelConfig | null }; // 이어하기용 상태 저장
   private isPaused = false;
 
   // 게임 상태 관리자
@@ -101,6 +110,10 @@ export class SnapShoot {
   private readonly handleBallCollideBound = (event: { body: CANNON.Body }) => this.handleBallCollide(event);
   private readonly handleGoalCollisionBound = (event: { body: CANNON.Body }) => this.handleGoalCollision(event);
   private touchGuideTimer: number | null = null;
+  private idleTimer: number | null = null;
+  private livesRemaining: number = GAME_CONFIG.session.totalLives;
+  private activeTierConfig: TierDifficultyConfig = getTierConfig(DEFAULT_TIER_ID);
+  private activePrizeTierConfig: PrizeTierConfig = resolvePrizeTierConfig(DEFAULT_TIER_ID);
   private assetLoader!: AssetLoader; // 초기화는 생성자에서 (의존성 필요)
 
   constructor(
@@ -108,13 +121,6 @@ export class SnapShoot {
     onScoreChange: (score: number) => void
   ) {
     this.onScoreChange = onScoreChange;
-
-    // 로딩 화면 생성 및 표시
-    // EventBus Listeners for Game Start
-    gameEventBus.on('GAME_STARTED', () => {
-      // 로딩 화면 스와이프 시 관중 함성 시작 (페이드인)
-      void this.audio.playMusic('chant', { fadeIn: true });
-    });
 
     // Modal Event Listeners
     gameEventBus.on('RESTART_GAME', () => this.restartGame());
@@ -137,11 +143,6 @@ export class SnapShoot {
 
     gameEventBus.on('UNLOCK_AUDIO', () => {
       this.audio.unlockAudioContext();
-    });
-
-    // 로딩 완료 시 게임플레이 음악 시작 (AssetLoader가 LOADING_COMPLETE emit)
-    gameEventBus.on('LOADING_COMPLETE', () => {
-      void this.audio.playMusic('gameplay');
     });
 
     // 에셋 로더 초기화
@@ -209,9 +210,12 @@ export class SnapShoot {
       world: this.world,
       gameLog: this.gameLog
     });
+    this.applyTierDifficulty(gameStateService.getEffectiveTier());
 
     this.attachEventListeners();
+    this.emitLivesChanged();
     this.resetBall();
+    this.resetIdleTimer();
     this.animate();
   }
 
@@ -232,6 +236,7 @@ export class SnapShoot {
 
     this.score += 1;
     this.updateScore(this.score);
+    this.resetIdleTimer();
 
     if (this.touchGuideTimer !== null) {
       clearTimeout(this.touchGuideTimer);
@@ -257,6 +262,13 @@ export class SnapShoot {
       this.field.adBoard.switchAdSet('goal');
     }
     this.field.adBoard.startBlinking();
+
+    if (this.score >= this.activePrizeTierConfig.topPrizePoints) {
+      this.gameLog.info(
+        `🏆 Top prize reached: score=${this.score}, tier=${this.activePrizeTierConfig.tierName}, threshold=${this.activePrizeTierConfig.topPrizePoints}`
+      );
+      this.gameOver();
+    }
   }
 
   private handleBallCollide(event: { body: CANNON.Body }) {
@@ -343,6 +355,9 @@ export class SnapShoot {
     if (this.touchGuideTimer !== null) {
       clearTimeout(this.touchGuideTimer);
     }
+    if (this.idleTimer !== null) {
+      clearTimeout(this.idleTimer);
+    }
     window.removeEventListener('resize', this.handleResizeBound);
     this.inputController.destroy();
     this.goal.bodies.sensor.removeEventListener('collide', this.handleGoalCollisionBound);
@@ -374,6 +389,15 @@ export class SnapShoot {
    */
   public setMasterVolume(volume: number): void {
     this.audio.setMasterVolume(volume);
+  }
+
+  public applyTierDifficulty(tierId: TierId): void {
+    this.activeTierConfig = getTierConfig(tierId);
+    this.activePrizeTierConfig = resolvePrizeTierConfig(tierId);
+    this.difficultyManager.setTier(tierId);
+    this.gameLog.info(
+      `🎚️ Applied ${this.activeTierConfig.tierName} (${this.activeTierConfig.difficultyName})`
+    );
   }
 
   private updateScore(newScore: number): void {
@@ -463,6 +487,7 @@ export class SnapShoot {
   private executeShooting(velocity: CANNON.Vec3, angularVelocity: CANNON.Vec3, analysis: any) {
     // 이미 슈팅 진행 중이면 무시
     if (this.isShotInProgress) return;
+    this.resetIdleTimer();
 
     // 슈팅 상태 설정
     this.isShotInProgress = true;
@@ -490,7 +515,7 @@ export class SnapShoot {
     // 2.5초 후 리셋 타이머 설정
     this.shotResetTimer = window.setTimeout(() => {
       this.resetAfterShot();
-    }, GAME_CONFIG.timing.shotResetMs);
+    }, this.activeTierConfig.shotResetMs);
   }
 
   /**
@@ -504,40 +529,15 @@ export class SnapShoot {
       // 실패시 항상 리셋 사운드
       this.audio.playSound('reset');
 
-      // 실패 카운트 증가
+      // 미스 시 라이프 차감
       this.failCount++;
-      console.log(`⚠️ 실패! 실패 횟수: ${this.failCount}/${GAME_CONFIG.gameOver.maxFailsAllowed}`);
+      this.livesRemaining = Math.max(0, this.livesRemaining - 1);
+      this.emitLivesChanged();
+      console.log(`⚠️ 실패! 남은 라이프: ${this.livesRemaining}/${GAME_CONFIG.session.totalLives}`);
 
-      // 현재 게임 상태 저장 (이어하기용)
-      this.savedGameState = {
-        score: this.score,
-        difficulty: this.difficultyManager.getCurrentDifficulty()
-      };
-
-      // 실패 콜백 호출 (모달 띄우기) 대신 이벤트 발생
-      if (this.failCount < GAME_CONFIG.gameOver.maxFailsAllowed) {
-        gameEventBus.emit({ type: 'SHOW_CONTINUE_MODAL', failCount: this.failCount });
-        
-        // 상태 초기화만 하고 공은 리셋하지 않음 (모달에서 선택에 따라 처리)
-        this.isShotInProgress = false;
-        this.hasScored = false;
-        this.shotResetTimer = null;
-        this.curveForceSystem.stopCurveShot();
-        return;
-      } else {
-        // 최대 실패 횟수 초과 -> 게임오버
+      if (this.livesRemaining <= 0) {
         this.gameOver();
-        // gameOver() 내부에서 점수 초기화 등을 수행하지만,
-        // 모달을 띄우기 위해 이벤트를 발생시켜야 함.
-        // gameOver()는 로직 초기화만 담당하고, 모달은 여기서 띄움?
-        // 아니면 gameOver() 안에서 emit?
-        // gameOver()는 'RESTART_GAME' 등에서도 호출되므로, 
-        // 여기서 명시적으로 SHOW_GAME_OVER_MODAL을 emit하는 것이 좋음.
-        // 단, gameOver()가 호출되면 점수가 0이 되므로, 점수 초기화 전에 emit해야 함.
-        // 하지만 위 코드 흐름상 gameOver() 호출 전에 emit해야 함.
-        // Wait, gameOver() resets score to 0.
-        // So I should emit SHOW_GAME_OVER_MODAL with current score BEFORE calling gameOver().
-        // Actually, let's look at gameOver() implementation.
+        return;
       }
     }
 
@@ -566,6 +566,8 @@ export class SnapShoot {
     // 게임 환경 리셋
     this.difficultyManager.resetAllTracking();
     this.difficultyManager.updateDifficulty(this.score, true);
+    // Keeper should stand still until the next shot starts.
+    this.difficultyManager.stopAllTracking();
     this.difficultyManager.setColliderDebugVisible(this.debugVisualizer.isDebugMode());
 
     this.field.adBoard.stopBlinking();
@@ -584,12 +586,8 @@ export class SnapShoot {
   public continueGame(): void {
     console.log('▶️ 게임 이어하기');
 
-    // 저장된 상태가 있으면 복원
-    if (this.savedGameState) {
-      this.score = this.savedGameState.score;
-      this.difficultyManager.updateDifficulty(this.score, false);
-      console.log(`복원된 점수: ${this.score}`);
-    }
+    // 3-라이프 규칙에서는 continue를 제공하지 않음
+    this.gameLog.info('Continue disabled for 3-life session rule');
 
     // 실패 카운트는 그대로 유지 (다시 실패하면 게임오버)
 
@@ -629,7 +627,9 @@ export class SnapShoot {
     this.resetNewRecordFlag();
 
     this.failCount = 0;
-    this.savedGameState = undefined;
+    this.livesRemaining = GAME_CONFIG.session.totalLives;
+    this.emitLivesChanged();
+    this.resetIdleTimer();
 
     // 상태 초기화
     this.isShotInProgress = false;
@@ -655,6 +655,17 @@ export class SnapShoot {
 
     // 점수 저장 (모달 표시용)
     const finalScore = this.score;
+    const prizeAward = buildPrizeAwardResult(this.activePrizeTierConfig.tierId, finalScore);
+    gameEventBus.emit({
+      type: 'PRIZE_AWARDED',
+      score: finalScore,
+      tierId: prizeAward.tierId,
+      tierName: prizeAward.tierName,
+      topPrizeReached: prizeAward.topPrizeReached,
+      topPrizePoints: prizeAward.topPrizePoints,
+      topPrizeCode: prizeAward.topPrizeCode,
+      topPrizeLabel: prizeAward.topPrizeLabel
+    });
 
     // 게임오버 모달 표시
     gameEventBus.emit({ type: 'SHOW_GAME_OVER_MODAL', score: finalScore });
@@ -664,7 +675,9 @@ export class SnapShoot {
     this.resetNewRecordFlag();
 
     this.failCount = 0;
-    this.savedGameState = undefined;
+    this.livesRemaining = GAME_CONFIG.session.totalLives;
+    this.emitLivesChanged();
+    this.resetIdleTimer();
 
     // 공 및 환경 리셋
     this.resetBall();
@@ -734,6 +747,25 @@ export class SnapShoot {
    */
   public resumeAudio(): void {
     this.audio.resumeAll();
+  }
+
+  private emitLivesChanged(): void {
+    gameEventBus.emit({
+      type: 'LIVES_CHANGED',
+      livesRemaining: this.livesRemaining,
+      totalLives: GAME_CONFIG.session.totalLives
+    });
+  }
+
+  private resetIdleTimer(): void {
+    if (this.idleTimer !== null) {
+      clearTimeout(this.idleTimer);
+    }
+
+    this.idleTimer = window.setTimeout(() => {
+      this.gameLog.info('⏱️ Session ended due to inactivity');
+      this.gameOver();
+    }, this.activeTierConfig.idleTimeoutMs);
   }
 
 }

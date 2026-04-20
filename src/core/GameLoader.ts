@@ -86,9 +86,15 @@ export function loadGame(params?: { score?: number }) {
     () => {}
   );
 
-  // 저장된 오디오 설정 복구 및 적용
+  const selectedTier = gameStateService.getSelectedTier();
+  const appliedTier = gameStateService.setSelectedTier(selectedTier);
+  game.applyTierDifficulty(appliedTier);
+  console.log(`🎚️ Session tier applied: ${appliedTier}`);
+
+  // 저장된 오디오 설정 복구 및 적용 (배경음악 미사용)
+  gameStateService.setMusicEnabled(false);
+  game.setMusicEnabled(false);
   const audioSettings = gameStateService.getAudioSettings();
-  game.setMusicEnabled(audioSettings.musicEnabled);
   game.setSfxEnabled(audioSettings.sfxEnabled);
   game.setMasterVolume(audioSettings.masterVolume);
 

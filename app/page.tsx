@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { TouchGuide } from '@/components/hud/TouchGuide';
 import { ShotInfoHud } from '@/components/hud/ShotInfoHud';
 import { ScoreDisplay } from '@/components/hud/ScoreDisplay';
+import { TermsNotice } from '@/components/hud/TermsNotice';
 import { LoadingScreen } from './components/screens/LoadingScreen';
 import { PauseButton } from './components/hud/PauseButton';
 import { PauseModal } from './components/modals/PauseModal';
@@ -47,6 +48,7 @@ export default function HomePage() {
         <TouchGuide />
         <ShotInfoHud />
         <ScoreDisplay />
+        <TermsNotice />
         <PauseButton />
         
         <PauseModal />

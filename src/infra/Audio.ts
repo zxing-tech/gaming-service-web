@@ -18,7 +18,7 @@ export class AudioManager {
   }>();
 
   // 전역 토글 상태
-  private musicEnabled = true;
+  private musicEnabled = false;
   private sfxEnabled = true;
 
   // 마스터 볼륨 (0.0 ~ 1.0)
@@ -51,9 +51,6 @@ export class AudioManager {
           this.soundBuffers.set(key, buffer);
         });
 
-      // 음악 로드 (chant + gameplay)
-      await this.loadMusic('chant');
-      await this.loadMusic('gameplay');
     })();
     return this.loadingPromise;
   }
@@ -328,10 +325,6 @@ export class AudioManager {
     this.musicEnabled = enabled;
     if (!enabled) {
       this.stopAllMusic();
-    } else {
-      // 다시 활성화되면 기본 두 트랙을 모두 재개
-      void this.playMusic('chant', { fadeIn: true });
-      void this.playMusic('gameplay');
     }
   }
 

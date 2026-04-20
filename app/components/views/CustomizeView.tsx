@@ -56,7 +56,7 @@ export function CustomizeView() {
   return (
     <div className="w-full max-w-md flex flex-col gap-6 pb-6">
       <div className="flex flex-col gap-4">
-        <h3 className="text-white/90 font-semibold text-lg">볼 테마</h3>
+        <h3 className="text-white/90 font-semibold text-lg">Ball Theme</h3>
         
         <div className="grid grid-cols-3 gap-4">
           {themes.map((theme) => {
@@ -97,10 +97,10 @@ export function CustomizeView() {
                   <div className="absolute inset-0 rounded-full bg-black/40 flex flex-col items-center justify-center pointer-events-none gap-1">
                     <LockIcon />
                     <div className="text-white/90 text-xs font-semibold text-center px-2 leading-tight">
-                      {theme.unlockScore}골 달성 시
+                      Unlock at {theme.unlockScore} goals
                     </div>
                     <div className="text-white/80 text-[10px] text-center px-2">
-                      잠금해제
+                      Locked
                     </div>
                   </div>
                 )}

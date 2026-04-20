@@ -3,6 +3,7 @@ export type GameEvent =
   // 점수 관련
   | { type: 'SCORE_CHANGED'; score: number }
   | { type: 'BEST_SCORE_UPDATED'; bestScore: number }
+  | { type: 'LIVES_CHANGED'; livesRemaining: number; totalLives: number }
 
   // 게임 상태
   | { type: 'GAME_STARTED' }
@@ -21,6 +22,16 @@ export type GameEvent =
   | { type: 'SHOW_TOUCH_GUIDE'; show: boolean }
   | { type: 'SHOW_PAUSE_MODAL'; show: boolean }
   | { type: 'SHOW_GAME_OVER_MODAL'; score: number }
+  | {
+    type: 'PRIZE_AWARDED';
+    score: number;
+    tierId: 1 | 2 | 3;
+    tierName: string;
+    topPrizeReached: boolean;
+    topPrizePoints: number;
+    topPrizeCode: string;
+    topPrizeLabel: string;
+  }
   | { type: 'SHOW_CONTINUE_MODAL'; failCount: number }
   | { type: 'SHOW_TOAST'; message: string; toastType?: 'info' | 'success' | 'error' }
 

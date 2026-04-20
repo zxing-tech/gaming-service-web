@@ -50,7 +50,7 @@ export function ContinueModal() {
 
   return (
     <Modal isOpen={isOpen} closeOnEsc={false} closeOnBackdrop={false}>
-      <ModalHeader title="게임을 계속하시겠습니까?" className="animate-fade-in" />
+      <ModalHeader title="Do you want to continue?" className="animate-fade-in" />
       
       <ModalContent>
         <CircularTimerButton 
@@ -81,7 +81,7 @@ export function ContinueModal() {
           <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/30 to-transparent pointer-events-none"></div>
           <div className="relative z-[2] flex items-center gap-2">
             <XCircle weight="fill" className="text-2xl drop-shadow-md group-active:scale-90 transition-transform" />
-            <span>포기하기</span>
+            <span>Give Up</span>
           </div>
         </button>
       </ModalFooter>

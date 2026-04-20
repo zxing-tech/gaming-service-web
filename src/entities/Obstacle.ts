@@ -12,6 +12,7 @@ import type {
   PrimitiveRenderConfig,
   RangeValue
 } from '../config/Obstacles';
+import { getAssetPath } from '../utils/assetPath';
 
 const DEFAULT_CYLINDER_SEGMENTS = 16;
 
@@ -160,6 +161,15 @@ export class Obstacle {
   private currentBaseQuaternion = new THREE.Quaternion();
 
   private movementTime = 0;
+  private keeperMaterial?: THREE.MeshStandardMaterial;
+  private keeperTextures?: {
+    left: THREE.Texture;
+    right: THREE.Texture;
+    center: THREE.Texture;
+    jump: THREE.Texture;
+    ready: THREE.Texture;
+  };
+  private keeperPreviousX = 0;
 
   constructor(
     scene: THREE.Scene,
@@ -229,13 +239,18 @@ export class Obstacle {
   }
 
   private initVisual(render: ObstacleBlueprint['render']): void {
+    let visualObject: THREE.Object3D | null = null;
     switch (render.kind) {
       case 'primitive':
-        this.visualRoot.add(this.createPrimitive(render));
+        visualObject = this.createPrimitive(render);
+        this.visualRoot.add(visualObject);
         break;
       case 'model':
         this.loadModel(render);
         break;
+    }
+    if (this.blueprintId === 'keeperWall' && visualObject instanceof THREE.Mesh) {
+      this.setupKeeperTextures(visualObject);
     }
     this.applyScale();
   }
@@ -510,6 +525,7 @@ export class Obstacle {
     this.currentQuaternion.copy(quaternion);
 
     this.applyTransform(position, quaternion);
+    this.updateKeeperPose(position);
 
     this.body.angularVelocity.set(0, 0, 0);
     this.body.velocity.set(0, 0, 0);
@@ -520,6 +536,11 @@ export class Obstacle {
   }
 
   startTracking(): void {
+    // Goalkeeper starts moving only when the shot starts, with random phase each time.
+    if (this.blueprintId === 'keeperWall' && this.behaviorState.patrol) {
+      this.behaviorState.patrol.phase = Math.random() * Math.PI * 2;
+      this.movementTime = 0;
+    }
     this.shouldTrack = true;
   }
 
@@ -582,6 +603,8 @@ export class Obstacle {
     this.currentBasePosition.copy(position);
     this.currentBaseQuaternion.copy(quaternion);
     this.applyTransform(position, quaternion);
+    this.keeperPreviousX = position.x;
+    this.updateKeeperPose(position);
   }
 
   dispose(): void {
@@ -664,6 +687,48 @@ export class Obstacle {
       }
     }
     position[state.axis] = value;
+  }
+
+  private setupKeeperTextures(mesh: THREE.Mesh): void {
+    if (!(mesh.material instanceof THREE.MeshStandardMaterial)) return;
+    this.keeperMaterial = mesh.material;
+    const textureLoader = new THREE.TextureLoader(this.loadingManager);
+    const left = textureLoader.load(getAssetPath('/assets/keeper/goalkeeper-dive-left.png'));
+    const right = textureLoader.load(getAssetPath('/assets/keeper/goalkeeper-dive-right.png'));
+    const center = textureLoader.load(getAssetPath('/assets/keeper/goalkeeper-save-center.png'));
+    const jump = textureLoader.load(getAssetPath('/assets/keeper/goalkeeper-jump.png'));
+    const ready = textureLoader.load(getAssetPath('/assets/keeper/goalkeeper-ready.png'));
+
+    [left, right, center, jump, ready].forEach((texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.needsUpdate = true;
+    });
+
+    this.keeperTextures = { left, right, center, jump, ready };
+    this.keeperMaterial.map = ready;
+    this.keeperMaterial.needsUpdate = true;
+  }
+
+  private updateKeeperPose(position: THREE.Vector3): void {
+    if (!this.keeperTextures || !this.keeperMaterial) return;
+
+    const deltaX = position.x - this.keeperPreviousX;
+    this.keeperPreviousX = position.x;
+
+    let nextTexture = this.keeperTextures.center;
+
+    if (Math.abs(deltaX) > 0.01) {
+      nextTexture = deltaX > 0 ? this.keeperTextures.right : this.keeperTextures.left;
+    } else if (Math.abs(position.x) < 0.25 && Math.sin(this.movementTime * 2.8) > 0.8) {
+      nextTexture = this.keeperTextures.jump;
+    } else if (Math.sin(this.movementTime * 1.4) > 0.2) {
+      nextTexture = this.keeperTextures.ready;
+    }
+
+    if (this.keeperMaterial.map !== nextTexture) {
+      this.keeperMaterial.map = nextTexture;
+      this.keeperMaterial.needsUpdate = true;
+    }
   }
 
   private applySpin(

@@ -14,6 +14,7 @@ import { gameEventBus } from '../../app/lib/gameEventBus';
 import { CategoryLogger } from '../utils/Logger';
 import { BALL_THEMES } from '../config/Ball';
 import { OBSTACLE_BLUEPRINTS } from '../config/Obstacles';
+import { PLAYERS_CONFIG } from '../config/Players';
 import { getAssetPath } from '../utils/assetPath';
 
 const grassColorUrl = getAssetPath('/assets/grass/Grass005_1K-JPG_Color.jpeg');
@@ -69,9 +70,16 @@ export class AssetLoader {
     const obstacleTextureCount = obstacleBlueprints.filter(
       b => b.render.kind === 'primitive' && b.render.material?.textureUrl
     ).length;
+    const playerModelCount = 2;
     const environmentTextureCount = 2; // 잔디 + 관중석
 
-    const totalAssets = ballModelCount + ballImageCount + obstacleModelCount + obstacleTextureCount + environmentTextureCount;
+    const totalAssets =
+      ballModelCount +
+      ballImageCount +
+      obstacleModelCount +
+      obstacleTextureCount +
+      playerModelCount +
+      environmentTextureCount;
     let loadedAssets = 0;
 
     // 진행도 업데이트 헬퍼
@@ -136,6 +144,18 @@ export class AssetLoader {
             })
         );
       }
+    });
+
+    // 플레이어 캐릭터 모델 프리로드 (키커 + 골키퍼)
+    [PLAYERS_CONFIG.kicker.assetUrl, PLAYERS_CONFIG.goalkeeper.assetUrl].forEach((assetUrl) => {
+      loadPromises.push(
+        gltfLoader.loadAsync(assetUrl)
+          .then(() => updateProgress())
+          .catch((error) => {
+            this.gameLog.warn(`Failed to preload player model: ${assetUrl}`, error);
+            updateProgress();
+          })
+      );
     });
 
     // 환경 텍스처 프리로드 (잔디, 관중석)
