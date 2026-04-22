@@ -9,7 +9,7 @@ import { GoalNetAnimator } from './GoalNetAnimator';
 const CROSSBAR_LENGTH = GOAL_WIDTH;
 
 /**
- * 정적 Body 생성 헬퍼
+
  */
 function createStaticBody(
   world: CANNON.World,
@@ -199,7 +199,7 @@ export class Goal {
       new CANNON.Box(new CANNON.Vec3(sensorWidth / 2, sensorHeight / 2, sensorDepth / 2)),
       new CANNON.Vec3(0, sensorHeight / 2, GOAL_DEPTH + sensorOffset)
     );
-    sensorBody.collisionResponse = false; // Sensor는 충돌 응답 없음 (통과)
+    sensorBody.collisionResponse = false;
 
     this.bodies = {
       leftPost: leftPostBody,

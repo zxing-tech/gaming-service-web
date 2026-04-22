@@ -17,7 +17,7 @@ export function Modal({
   closeOnEsc = true,
   closeOnBackdrop = false
 }: ModalProps) {
-  // ESC 키 처리
+
   useEffect(() => {
     if (!closeOnEsc || !isOpen) return;
 
@@ -31,7 +31,7 @@ export function Modal({
     return () => document.removeEventListener('keydown', handleEsc);
   }, [closeOnEsc, isOpen, onClose]);
 
-  // 스크롤 잠금
+
   useEffect(() => {
     if (isOpen) {
       document.documentElement.style.overflow = 'hidden';
@@ -79,7 +79,7 @@ export function ModalHeader({ title, onBack, className = '' }: ModalHeaderProps)
     <div 
       className={`w-full flex items-center justify-center py-4 pb-8 ${className}`}
       style={{
-        paddingTop: 'max(env(safe-area-inset-top, 0px), calc(25vh - 3rem))', // 상단 1/4 지점
+        paddingTop: 'max(env(safe-area-inset-top, 0px), calc(25vh - 3rem))',
       }}
     >
       {/* Back Button */}
@@ -126,7 +126,7 @@ export function ModalFooter({ children, className = '' }: ModalFooterProps) {
     <div 
       className={`w-full flex items-center justify-center ${className}`}
       style={{
-        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), calc(25vh - 4rem))', // 하단 1/4 지점
+        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), calc(25vh - 4rem))',
       }}
     >
       {children}

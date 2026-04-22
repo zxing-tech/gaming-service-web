@@ -67,14 +67,14 @@ export function PauseModal() {
   };
 
   const handleRanking = async () => {
-    // 게임센터가 비활성화되어 있으면 안내 메시지 표시
+
     if (!TOSS_CONFIG.GAME_CENTER_ENABLED) {
       console.warn('ℹ️ Game Center is not enabled yet.');
       showToast.info('Ranking is coming soon.\\nPlease check back later!');
       return;
     }
 
-    // 토스 앱 환경이 아니면 경고 메시지 표시
+
     if (!isTossGameCenterAvailable()) {
       console.warn('ℹ️ Ranking is only available in the Toss app.');
       showToast.info('Ranking is only available in the Toss app.\\nPlease run the game in Toss.');

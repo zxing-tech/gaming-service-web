@@ -1,20 +1,47 @@
 import * as THREE from 'three';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as CANNON from 'cannon-es';
-import type {
-  Axis,
-  ObstacleBehaviorConfig,
-  ObstacleBlueprint,
-  ObstacleColliderConfig,
-  ObstacleInstanceConfig,
-  ObstacleMaterialConfig,
-  ObstacleTransformConfig,
-  PrimitiveRenderConfig,
-  RangeValue
+import {
+  type Axis,
+  type ObstacleBehaviorConfig,
+  type ObstacleBlueprint,
+  type ObstacleColliderConfig,
+  type ObstacleInstanceConfig,
+  type ObstacleMaterialConfig,
+  type ObstacleTransformConfig,
+  type PrimitiveRenderConfig,
+  type RangeValue
 } from '../config/Obstacles';
 import { getAssetPath } from '../utils/assetPath';
 
 const DEFAULT_CYLINDER_SEGMENTS = 16;
+
+/** Horizontal sprite strip for idle (optional asset). Frames must be equal width; total width = frameCount × one frame width. */
+const KEEPER_IDLE_STRIP_PATH = '/assets/keeper/goalkeeper-idle-strip.png';
+const KEEPER_IDLE_STRIP_FRAMES = 4;
+const KEEPER_IDLE_STRIP_FPS = 9;
+
+/** Fallback 2-frame idle cycle using existing PNGs when no strip is present (Hz). */
+const KEEPER_IDLE_TWO_FRAME_CYCLE_HZ = 2.4;
+
+function basenameFromAssetUrl(url: string): string {
+  const path = url.split('?')[0];
+  const seg = path.split('/');
+  const file = seg[seg.length - 1] ?? 'clip';
+  return decodeURIComponent(file.replace(/\.[^.]+$/, ''));
+}
+
+/** FBX basename + Mixamo clip name (e.g. `character.fbx` with a "Diving Save" track). */
+function classifyKeeperClip(bundleLabel: string, clipName: string): 'idle' | 'dive' {
+  const n = `${bundleLabel} ${clipName}`.toLowerCase();
+  if (n.includes('body block')) return 'idle';
+  if (n.includes('diving save')) return 'dive';
+  if (n.includes('diving')) return 'dive';
+  if (/\bdive\b/.test(n)) return 'dive';
+  if (/\bsave\b/.test(n) && !n.includes('idle')) return 'dive';
+  return 'idle';
+}
 
 function toVector3(init?: { x?: number; y?: number; z?: number }, defaultValue = 0): THREE.Vector3 {
   return new THREE.Vector3(
@@ -170,6 +197,25 @@ export class Obstacle {
     ready: THREE.Texture;
   };
   private keeperPreviousX = 0;
+  /** Smoothed patrol position for keeperWall (meters on patrol axis); null = initialize from target. */
+  private keeperSmoothedPatrol: number | null = null;
+
+  /** Optional idle sprite strip; loaded async — if missing, idle uses ready/center flipbook. */
+  private keeperIdleStrip: THREE.Texture | null = null;
+  private keeperIdleStripFrameIndex = 0;
+  private keeperIdleStripAccumulator = 0;
+
+  /** Mixamo FBX goalkeeper (merged clips). */
+  private keeperMixer?: THREE.AnimationMixer;
+  private keeperAnimRoot?: THREE.Object3D;
+  private keeperIdleClips: THREE.AnimationClip[] = [];
+  private keeperCurrentAction?: THREE.AnimationAction;
+  private keeperCurrentClip?: THREE.AnimationClip;
+  /** True while a shot is in flight — motion is clip-only (two Body Block animations, random per kick). */
+  private keeperShotPhaseActive = false;
+  /** Keeper can move laterally only after ball enters reaction zone. */
+  private keeperMovementArmed = false;
+  private keeperMixerUsesFinishedHook = false;
 
   constructor(
     scene: THREE.Scene,
@@ -305,6 +351,12 @@ export class Obstacle {
     }
     this.visualRoot.add(group);
 
+    if (render.sourceFormat === 'fbx') {
+      this.loadKeeperFbxBundle(render, group);
+      this.applyScale(render.scale, group);
+      return;
+    }
+
     const loader = new GLTFLoader(this.loadingManager);
     loader.load(
       render.assetUrl,
@@ -328,6 +380,235 @@ export class Obstacle {
     );
 
     this.applyScale(render.scale, group);
+  }
+
+  private loadKeeperFbxBundle(
+    render: Extract<ObstacleBlueprint['render'], { kind: 'model' }>,
+    group: THREE.Group
+  ): void {
+    const loader = new FBXLoader(this.loadingManager);
+    const idle: THREE.AnimationClip[] = [];
+    const dive: THREE.AnimationClip[] = [];
+
+    const pushClips = (animations: THREE.AnimationClip[], label: string) => {
+      animations.forEach((clip) => {
+        const c = clip.clone();
+        c.name = `${label}::${clip.name}`;
+        const cat = classifyKeeperClip(label, clip.name);
+        if (cat === 'dive') dive.push(c);
+        else idle.push(c);
+      });
+    };
+
+    const disposeSceneMeshes = (root: THREE.Object3D) => {
+      root.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry?.dispose();
+          const m = child.material;
+          if (Array.isArray(m)) m.forEach((mat) => mat.dispose());
+          else m?.dispose();
+        }
+      });
+    };
+
+    loader.load(
+      encodeURI(render.assetUrl),
+      (primary) => {
+        pushClips(primary.animations, basenameFromAssetUrl(render.assetUrl));
+        primary.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.castShadow = false;
+            child.receiveShadow = false;
+            if (child.material instanceof THREE.MeshStandardMaterial && child.material.map) {
+              child.material.map.colorSpace = THREE.SRGBColorSpace;
+            }
+          }
+        });
+        group.add(primary);
+        this.alignKeeperFeetToGround(primary, group);
+        this.keeperAnimRoot = primary;
+        this.keeperMixer = new THREE.AnimationMixer(primary);
+
+        const extras = [...(render.extraAnimationUrls ?? [])];
+        if (extras.length === 0) {
+          this.finalizeKeeperAnimationClips(idle, dive);
+          return;
+        }
+
+        let remaining = extras.length;
+        extras.forEach((url) => {
+          loader.load(
+            encodeURI(url),
+            (extra) => {
+              pushClips(extra.animations, basenameFromAssetUrl(url));
+              disposeSceneMeshes(extra);
+              remaining -= 1;
+              if (remaining === 0) {
+                this.finalizeKeeperAnimationClips(idle, dive);
+              }
+            },
+            undefined,
+            () => {
+              remaining -= 1;
+              if (remaining === 0) {
+                this.finalizeKeeperAnimationClips(idle, dive);
+              }
+            }
+          );
+        });
+      },
+      undefined,
+      (error) => {
+        console.error(`[Obstacle] Keeper base FBX failed: ${render.assetUrl}`, error);
+      }
+    );
+  }
+
+  /**
+   * Lower mesh so bounding-box bottom sits on group origin (pitch plane).
+   * Small upward bias avoids sinking into grass / z-fighting.
+   */
+  private alignKeeperFeetToGround(primary: THREE.Object3D, group: THREE.Group): void {
+    const CLEARANCE = 0.025;
+    primary.updateWorldMatrix(true, false);
+    const bbox = new THREE.Box3().setFromObject(primary);
+    const footWorld = new THREE.Vector3(bbox.min.x, bbox.min.y, bbox.min.z);
+    const footLocal = footWorld.clone();
+    group.worldToLocal(footLocal);
+    primary.position.y -= footLocal.y;
+    primary.position.y += CLEARANCE;
+  }
+
+  private finalizeKeeperAnimationClips(idle: THREE.AnimationClip[], dive: THREE.AnimationClip[]): void {
+    const combined: THREE.AnimationClip[] = [...idle];
+    if (!combined.length && dive.length) combined.push(dive[0]);
+
+    // Keep one representative clip per FBX bundle.
+    const byBundle = new Map<string, THREE.AnimationClip>();
+    for (const clip of combined) {
+      const key = clip.name.includes('::') ? clip.name.slice(0, clip.name.indexOf('::')) : clip.name;
+      if (!byBundle.has(key)) byBundle.set(key, clip);
+    }
+    this.keeperIdleClips = [...byBundle.values()];
+
+    this.ensureKeeperMixerFinishedHook();
+
+    // Keep goalkeeper in a natural looping idle state after load.
+    this.playKeeperIdleLoop();
+  }
+
+  /** Stop clips and reset bones to the FBX bind pose (used before each kick). */
+  private applyKeeperBindPose(): void {
+    if (!this.keeperAnimRoot) return;
+    this.keeperMixer?.stopAllAction();
+    this.keeperCurrentAction = undefined;
+    this.keeperCurrentClip = undefined;
+    this.keeperAnimRoot.updateMatrixWorld(true);
+    this.keeperAnimRoot.traverse((child) => {
+      if (child instanceof THREE.SkinnedMesh && child.skeleton) {
+        child.skeleton.pose();
+      }
+    });
+  }
+
+  private playKeeperIdleLoop(): void {
+    if (!this.keeperMixer || !this.keeperAnimRoot) return;
+    const idleClip = this.pickRandomIdleClip();
+    if (!idleClip) {
+      this.applyKeeperBindPose();
+      return;
+    }
+    this.crossFadeKeeperClip(idleClip, { loop: true });
+  }
+
+  private ensureKeeperMixerFinishedHook(): void {
+    if (!this.keeperMixer || this.keeperMixerUsesFinishedHook) return;
+    this.keeperMixerUsesFinishedHook = true;
+    this.keeperMixer.addEventListener('finished', this.onKeeperMixerFinished);
+  }
+
+  private readonly onKeeperMixerFinished = (evt: unknown): void => {
+    const action = (evt as { action?: THREE.AnimationAction }).action;
+    if (!action || action !== this.keeperCurrentAction || !this.keeperMixer || !this.keeperAnimRoot) return;
+    if (this.blueprintId === 'keeperWall') {
+      if (!this.keeperShotPhaseActive || !this.keeperMovementArmed) {
+        this.playKeeperIdleLoop();
+      } else {
+        // During active shot phase, keep final pose after one dive (do not replay).
+      }
+      return;
+    }
+
+    const idleClip = this.pickRandomIdleClip();
+    if (idleClip) this.crossFadeKeeperClip(idleClip, { loop: true });
+  };
+
+  private crossFadeKeeperClip(clip: THREE.AnimationClip, opts?: { loop?: boolean }): void {
+    if (!this.keeperMixer || !this.keeperAnimRoot) return;
+    const loop = opts?.loop !== false;
+    if (loop && this.keeperCurrentClip === clip) return;
+
+    const nextAction = this.keeperMixer.clipAction(clip, this.keeperAnimRoot);
+    nextAction.reset();
+    if (loop) {
+      nextAction.setLoop(THREE.LoopRepeat, Infinity);
+      nextAction.clampWhenFinished = false;
+    } else {
+      nextAction.setLoop(THREE.LoopOnce, 1);
+      nextAction.clampWhenFinished = true;
+    }
+    const fade = loop ? 0.22 : 0.18;
+    if (this.keeperCurrentAction) {
+      this.keeperCurrentAction.fadeOut(fade);
+    }
+    nextAction.fadeIn(fade).play();
+    this.keeperCurrentAction = nextAction;
+    this.keeperCurrentClip = clip;
+  }
+
+  private pickRandomIdleClip(): THREE.AnimationClip | null {
+    if (!this.keeperIdleClips.length) return null;
+    const preferredIdleClip = this.keeperIdleClips.find((clip) => {
+      const n = clip.name.toLowerCase();
+      return n.includes('goalkeeper idle') || n.includes(' idle');
+    });
+    if (preferredIdleClip) return preferredIdleClip;
+    const i = Math.floor(Math.random() * this.keeperIdleClips.length);
+    return this.keeperIdleClips[i] ?? null;
+  }
+
+  private pickRandomShotClip(): THREE.AnimationClip | null {
+    const bodyBlockClips = this.keeperIdleClips.filter((clip) => {
+      const n = clip.name.toLowerCase();
+      return n.includes('goalkeeper body block');
+    });
+    if (bodyBlockClips.length === 0) return null;
+    const i = Math.floor(Math.random() * bodyBlockClips.length);
+    return bodyBlockClips[i] ?? null;
+  }
+
+  private playKeeperShotOnce(): void {
+    if (!this.keeperMixer || !this.keeperAnimRoot) return;
+    const shotClip = this.pickRandomShotClip() ?? this.pickRandomIdleClip();
+    if (!shotClip) {
+      this.applyKeeperBindPose();
+      return;
+    }
+    this.crossFadeKeeperClip(shotClip, { loop: false });
+  }
+
+  private updateKeeper3DAnimations(_position: THREE.Vector3, deltaTime: number): void {
+    if (!this.keeperMixer || !this.keeperAnimRoot) return;
+    const dt = Math.min(Math.max(deltaTime, 0), 0.05);
+    this.keeperMixer.update(dt);
+  }
+
+  /** Between rounds — center on the line; idle stance (called before obstacle sync restarts tracking). */
+  public resetKeeperBetweenRounds(): void {
+    if (this.blueprintId !== 'keeperWall') return;
+    this.keeperShotPhaseActive = false;
+    this.keeperMovementArmed = false;
+    this.playKeeperIdleLoop();
   }
 
   private applyScale(scaleConfig?: number | { x?: number; y?: number; z?: number }, target?: THREE.Object3D) {
@@ -504,6 +785,15 @@ export class Obstacle {
   }
 
   update(deltaTime: number): void {
+    if (this.blueprintId === 'keeperWall' && !this.shouldTrack && this.keeperMixer) {
+      // Waiting between kicks: keep idle animation running.
+      const dt = Math.min(Math.max(deltaTime, 0), 0.05);
+      this.keeperMixer.update(dt);
+      this.body.angularVelocity.set(0, 0, 0);
+      this.body.velocity.set(0, 0, 0);
+      return;
+    }
+
     if (!this.shouldTrack) {
       this.body.angularVelocity.set(0, 0, 0);
       this.body.velocity.set(0, 0, 0);
@@ -516,7 +806,7 @@ export class Obstacle {
     const quaternion = this.currentBaseQuaternion.clone();
 
     if (this.behaviorState.patrol) {
-      this.applyPatrol(position, this.behaviorState.patrol);
+      this.applyPatrol(position, this.behaviorState.patrol, deltaTime);
     }
     if (this.behaviorState.spin) {
       this.applySpin(quaternion, position, this.behaviorState.spin, deltaTime);
@@ -525,7 +815,7 @@ export class Obstacle {
     this.currentQuaternion.copy(quaternion);
 
     this.applyTransform(position, quaternion);
-    this.updateKeeperPose(position);
+    this.updateKeeperPose(position, deltaTime);
 
     this.body.angularVelocity.set(0, 0, 0);
     this.body.velocity.set(0, 0, 0);
@@ -535,13 +825,52 @@ export class Obstacle {
     this.debugRoot.visible = visible;
   }
 
+  /** Call from SnapShoot right after starting a shot — enables proximity dive detection only for this kick. */
+  public prepareKeeperForIncomingShot(): void {
+    if (this.blueprintId !== 'keeperWall') return;
+    this.keeperShotPhaseActive = true;
+    this.keeperMovementArmed = false;
+    this.randomizeKeeperPatrolForShot();
+    // Keep normal keeper stance before movement arm; no T-pose hold.
+    this.playKeeperIdleLoop();
+  }
+
   startTracking(): void {
-    // Goalkeeper starts moving only when the shot starts, with random phase each time.
-    if (this.blueprintId === 'keeperWall' && this.behaviorState.patrol) {
-      this.behaviorState.patrol.phase = Math.random() * Math.PI * 2;
+    if (this.blueprintId === 'keeperWall') {
       this.movementTime = 0;
+      this.keeperSmoothedPatrol = null;
+      this.keeperIdleStripAccumulator = 0;
+      this.keeperIdleStripFrameIndex = 0;
+      this.keeperMovementArmed = false;
+      // Motion clips begin in prepareKeeperForIncomingShot — until then bind pose stays up.
     }
     this.shouldTrack = true;
+  }
+
+  public setKeeperMovementArmed(armed: boolean): void {
+    if (this.blueprintId !== 'keeperWall') return;
+    if (armed) {
+      if (!this.keeperMovementArmed) {
+        this.keeperMovementArmed = true;
+        this.playKeeperShotOnce();
+      }
+    } else if (!this.keeperShotPhaseActive) {
+      this.keeperMovementArmed = false;
+      this.playKeeperIdleLoop();
+    }
+  }
+
+  private randomizeKeeperPatrolForShot(): void {
+    const patrol = this.behaviorState.patrol;
+    if (!patrol) return;
+
+    // Start each shot with an immediate side commit.
+    this.movementTime = 0;
+    const moveRight = Math.random() >= 0.5;
+    patrol.phase = moveRight ? Math.PI * 0.5 : -Math.PI * 0.5;
+
+    // Faster lateral reaction once movement is armed.
+    patrol.speed = THREE.MathUtils.randFloat(3.0, 4.2);
   }
 
   stopTracking(): void {
@@ -604,7 +933,11 @@ export class Obstacle {
     this.currentBaseQuaternion.copy(quaternion);
     this.applyTransform(position, quaternion);
     this.keeperPreviousX = position.x;
-    this.updateKeeperPose(position);
+    if (this.blueprintId === 'keeperWall' && this.behaviorState.patrol) {
+      const axis = this.behaviorState.patrol.axis;
+      this.keeperSmoothedPatrol = position[axis];
+    }
+    this.updateKeeperPose(position, 0);
   }
 
   dispose(): void {
@@ -614,6 +947,17 @@ export class Obstacle {
     if (this.pivot.parent) {
       this.pivot.parent.remove(this.pivot);
     }
+    if (this.keeperIdleStrip) {
+      this.keeperIdleStrip.dispose();
+      this.keeperIdleStrip = null;
+    }
+    if (this.keeperMixer && this.keeperMixerUsesFinishedHook) {
+      this.keeperMixer.removeEventListener('finished', this.onKeeperMixerFinished);
+      this.keeperMixerUsesFinishedHook = false;
+    }
+    this.keeperMixer?.stopAllAction();
+    this.keeperMixer = undefined;
+    this.keeperAnimRoot = undefined;
     this.disposeObject(this.visualRoot);
     this.disposeObject(this.debugRoot);
   }
@@ -666,27 +1010,56 @@ export class Obstacle {
     this.body.updateAABB();
   }
 
-  private applyPatrol(position: THREE.Vector3, state: NonNullable<BehaviorState['patrol']>): void {
+  private applyPatrol(
+    position: THREE.Vector3,
+    state: NonNullable<BehaviorState['patrol']>,
+    deltaTime: number
+  ): void {
+    if (this.blueprintId === 'keeperWall' && !this.keeperMovementArmed) {
+      const axis = state.axis;
+      const centerValue = this.currentBasePosition[axis];
+      this.keeperSmoothedPatrol = centerValue;
+      position[axis] = centerValue;
+      return;
+    }
+
     const [min, max] = state.range;
     const center = (min + max) * 0.5;
     const amplitude = Math.max((max - min) * 0.5, 0);
-    let value = center;
+    let rawValue = center;
     switch (state.waveform) {
       case 'pingpong': {
         const duration = Math.PI;
         const phase = (state.phase + this.movementTime * state.speed) % (duration * 2);
         const t = phase <= duration ? phase / duration : 2 - phase / duration;
-        value = min + (max - min) * t;
+        rawValue = min + (max - min) * t;
         break;
       }
       case 'sine':
       default: {
         const angle = state.phase + this.movementTime * state.speed;
-        value = center + amplitude * Math.sin(angle);
+        rawValue = center + amplitude * Math.sin(angle);
         break;
       }
     }
-    position[state.axis] = value;
+
+    const axis = state.axis;
+    if (this.blueprintId === 'keeperWall') {
+      const dt = Math.min(Math.max(deltaTime, 0), 0.05);
+      if (this.keeperSmoothedPatrol === null) {
+        this.keeperSmoothedPatrol = rawValue;
+      } else {
+        this.keeperSmoothedPatrol = THREE.MathUtils.damp(
+          this.keeperSmoothedPatrol,
+          rawValue,
+          10.0,
+          dt
+        );
+      }
+      position[axis] = this.keeperSmoothedPatrol;
+    } else {
+      position[axis] = rawValue;
+    }
   }
 
   private setupKeeperTextures(mesh: THREE.Mesh): void {
@@ -707,26 +1080,74 @@ export class Obstacle {
     this.keeperTextures = { left, right, center, jump, ready };
     this.keeperMaterial.map = ready;
     this.keeperMaterial.needsUpdate = true;
+
+    textureLoader.load(
+      getAssetPath(KEEPER_IDLE_STRIP_PATH),
+      (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.wrapS = THREE.ClampToEdgeWrapping;
+        tex.wrapT = THREE.ClampToEdgeWrapping;
+        tex.repeat.set(1 / KEEPER_IDLE_STRIP_FRAMES, 1);
+        tex.offset.set(0, 0);
+        tex.needsUpdate = true;
+        this.keeperIdleStrip = tex;
+      },
+      undefined,
+      () => {
+        this.keeperIdleStrip = null;
+      }
+    );
   }
 
-  private updateKeeperPose(position: THREE.Vector3): void {
+  private updateKeeperPose(position: THREE.Vector3, deltaTime = 0): void {
+    if (this.keeperMixer && this.keeperAnimRoot) {
+      this.updateKeeper3DAnimations(position, deltaTime);
+      return;
+    }
+
     if (!this.keeperTextures || !this.keeperMaterial) return;
 
     const deltaX = position.x - this.keeperPreviousX;
     this.keeperPreviousX = position.x;
 
-    let nextTexture = this.keeperTextures.center;
+    const isDive = Math.abs(deltaX) > 0.01;
+    const isJump =
+      !isDive && Math.abs(position.x) < 0.25 && Math.sin(this.movementTime * 2.8) > 0.8;
 
-    if (Math.abs(deltaX) > 0.01) {
-      nextTexture = deltaX > 0 ? this.keeperTextures.right : this.keeperTextures.left;
-    } else if (Math.abs(position.x) < 0.25 && Math.sin(this.movementTime * 2.8) > 0.8) {
-      nextTexture = this.keeperTextures.jump;
-    } else if (Math.sin(this.movementTime * 1.4) > 0.2) {
-      nextTexture = this.keeperTextures.ready;
+    if (isDive) {
+      this.setKeeperDiffuse(deltaX > 0 ? this.keeperTextures.right : this.keeperTextures.left);
+      return;
+    }
+    if (isJump) {
+      this.setKeeperDiffuse(this.keeperTextures.jump);
+      return;
     }
 
-    if (this.keeperMaterial.map !== nextTexture) {
-      this.keeperMaterial.map = nextTexture;
+    if (this.keeperIdleStrip) {
+      const dt = Math.min(Math.max(deltaTime, 0), 0.05);
+      const step = 1 / Math.max(KEEPER_IDLE_STRIP_FPS, 0.001);
+      this.keeperIdleStripAccumulator += dt;
+      while (this.keeperIdleStripAccumulator >= step) {
+        this.keeperIdleStripAccumulator -= step;
+        this.keeperIdleStripFrameIndex =
+          (this.keeperIdleStripFrameIndex + 1) % KEEPER_IDLE_STRIP_FRAMES;
+      }
+      const tex = this.keeperIdleStrip;
+      tex.repeat.set(1 / KEEPER_IDLE_STRIP_FRAMES, 1);
+      tex.offset.set(this.keeperIdleStripFrameIndex / KEEPER_IDLE_STRIP_FRAMES, 0);
+      tex.needsUpdate = true;
+      this.setKeeperDiffuse(tex);
+      return;
+    }
+
+    const twoFrame = Math.floor(this.movementTime * KEEPER_IDLE_TWO_FRAME_CYCLE_HZ) % 2;
+    this.setKeeperDiffuse(twoFrame === 0 ? this.keeperTextures.ready : this.keeperTextures.center);
+  }
+
+  private setKeeperDiffuse(texture: THREE.Texture): void {
+    if (!this.keeperMaterial) return;
+    if (this.keeperMaterial.map !== texture) {
+      this.keeperMaterial.map = texture;
       this.keeperMaterial.needsUpdate = true;
     }
   }

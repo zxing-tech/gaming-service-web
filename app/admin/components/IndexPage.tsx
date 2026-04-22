@@ -22,7 +22,7 @@ export function IndexPage({ levels, onNavigate }: IndexPageProps) {
             Difficulty Preview Admin
           </h1>
           <p className="text-slate-400 text-lg">
-            난이도 그룹별로 장애물 배치를 확인하세요.
+            Review obstacle layouts by difficulty group.
           </p>
         </div>
 

@@ -23,13 +23,13 @@ body {
   font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   touch-action: none;
   user-select: none;
-  /* 배경 투명 - html 배경이 비치게 */
+
   background-color: transparent;
 }
 
 @layer base {
   html {
-    /* 배경은 JavaScript에서 동적으로 설정 (로딩: 하늘-연두, 인게임: 빨강-녹색) */
+
     @apply h-[100dvh] min-h-[100dvh];
   }
 }
@@ -48,7 +48,7 @@ body {
       var(--tw-backdrop-sepia);
   }
 
-  /* 버튼 눌림 효과 - 즉각 반응 */
+
   .button-pressed {
     transform: translateY(2px) scale(0.96) !important;
     transition: none !important;
@@ -87,7 +87,7 @@ body {
 
 /* ============================================
    GLASS MORPHISM STYLES
-   (Tailwind로 불가능한 커스텀 효과)
+
    ============================================ */
 
 .font-orbitron {
@@ -95,7 +95,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* 커스텀 스크롤바 */
+
 #settings-scroll-container,
 #settings-modal-content {
   scrollbar-width: thin;
@@ -130,7 +130,7 @@ body {
   background: rgba(255, 255, 255, 0.5);
 }
 
-/* Volume slider 스타일 */
+
 .volume-slider::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
@@ -226,87 +226,9 @@ body {
     @apply pointer-events-none opacity-0;
   }
 
-  /* Grass hill - Cartoon style base */
-  .loading-screen::before {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 55%;
-
-    /* Cartoon grass layers */
-    background-image:
-      /* Perspective depth - darker at horizon, lighter near */
-      linear-gradient(180deg,
-        rgba(40, 70, 30, 0.35) 0%,
-        rgba(40, 70, 30, 0.18) 25%,
-        transparent 50%,
-        rgba(200, 240, 150, 0.12) 75%,
-        rgba(230, 255, 180, 0.2) 100%
-      ),
-      /* Soccer field stripe pattern */
-      repeating-linear-gradient(
-	  	160deg,
-	  #58823a 0px,
-  	  #58823a 72px,
-  	  #49752a 72px,
-  	  #49752a 144px
-      );
-
-    background-size: 100% 100%;
-    background-position: center;
-
-    filter: brightness(1.4) saturate(1.5);
-    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
-    transform: translateY(calc(20% + var(--hill-offset, 0px))) scaleX(4);
-    transition: transform 0.8s ease-out;
-    z-index: 0;
-  }
-
-  /* Grass hill - Highlight layer (sunlight reflection on grass) */
-  .loading-screen::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 55%;
-
-    /* Sunlight highlight - subtle shimmer on grass surface */
-    background:
-      linear-gradient(180deg,
-        transparent 0%,
-        transparent 60%,
-        rgba(255, 255, 200, 0.08) 75%,
-        rgba(255, 255, 220, 0.15) 90%,
-        rgba(255, 255, 240, 0.2) 100%
-      );
-
-    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
-    transform: translateY(calc(20% + var(--hill-offset, 0px))) scaleX(4);
-    transition: transform 0.8s ease-out;
-    pointer-events: none;
-    z-index: 1;
-  }
-
   .loading-screen > * {
     position: relative;
     z-index: 2;
-  }
-
-  /* Goalpost on the horizon */
-  .loading-goalpost {
-    position: absolute;
-    bottom: 38%;
-    left: 50%;
-    transform: translate(-50%, var(--hill-offset, 0px)); /* Use variable for vertical movement */
-    width: 20vh; /* Responsive width */
-    max-width: 120px;
-    opacity: 1.;
-    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.3));
-    transition: transform 0.8s ease-out; /* Sync animation timing */
-    z-index: 30; /* swipeCanvas(z-25)보다 위에 */
   }
 }
 
@@ -444,40 +366,40 @@ body {
 }
 
 /* ========================================
-   가로 모드 반응형 레이아웃
+
    ======================================== */
 @media (orientation: landscape) and (max-height: 550px) {
   .loading-screen {
-    /* 상단 여백을 줄여 세로 공간 확보 */
+
     padding-top: 5vh !important;
   }
 
   .loading-screen__title {
-    /* 타이틀과 프로그레스 바 사이 여백 감소 */
+
     margin-bottom: 4vh !important;
   }
 
   .loading-screen__title-text {
-    /* 로고 이미지 크기 축소 */
+
     max-width: 300px !important;
   }
 
   .loading-screen__stage1-container,
   .loading-screen__soccer-ball-container {
-    /* 하단에서의 위치 및 내부 요소 간격 축소 */
+
     bottom: 5vh !important;
     gap: 1rem !important; /* 16px */
   }
 
   .loading-screen__soccer-ball {
-    /* 축구공 크기 축소 */
+
     width: 32px !important;
     height: 32px !important;
   }
 
   .loading-screen__message,
   .loading-screen__soccer-ball-container > div {
-    /* 메시지 폰트 크기 조정 */
+
     font-size: 16px !important;
   }
 }

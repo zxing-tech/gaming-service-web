@@ -4,7 +4,7 @@ import { gameEventBus } from '@/lib/gameEventBus';
 import type { GameEvent } from '@/types/gameEvents';
 
 /**
- * 게임 이벤트 구독 Hook
+
  *
  * @example
  * useGameEvent('SCORE_CHANGED', (event) => {

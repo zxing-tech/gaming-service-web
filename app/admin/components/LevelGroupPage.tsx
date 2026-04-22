@@ -20,7 +20,7 @@ export function LevelGroupPage({ groupId, levels, onBack }: LevelGroupPageProps)
             Level {groupId}
           </h1>
           <p className="text-slate-400 text-lg">
-            {levels.length}개의 난이도 변형이 있습니다.
+            {levels.length}difficulty variants available.
           </p>
         </div>
 
@@ -30,7 +30,7 @@ export function LevelGroupPage({ groupId, levels, onBack }: LevelGroupPageProps)
           className="mb-8 px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300
                      rounded-lg transition-colors duration-200 font-medium"
         >
-          ← 목록으로
+          ← Back to list
         </button>
 
         {/* Levels Grid */}

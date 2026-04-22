@@ -35,7 +35,7 @@ export function LevelCard({ level }: LevelCardProps) {
       {/* Obstacle List */}
       <div className="flex flex-wrap gap-2">
         {obstacleCount === 0 ? (
-          <p className="text-slate-500 text-sm">배치된 장애물이 없습니다.</p>
+          <p className="text-slate-500 text-sm">No obstacles are placed.</p>
         ) : (
           level.obstacles!.map((instance, idx) => (
             <span

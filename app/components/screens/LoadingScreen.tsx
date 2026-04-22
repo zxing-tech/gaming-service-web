@@ -18,10 +18,10 @@ const FOOTBALL_MESSAGES = [
 ];
 
 export function LoadingScreen() {
+  const loadingBackgroundUrl = getAssetPath('/assets/pexels-boom-12585891.jpg');
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState(FOOTBALL_MESSAGES[0]);
   const [stage, setStage] = useState<'loading' | 'tap' | 'swipe' | 'hiding' | 'hidden'>('loading');
-  const [hillOffset, setHillOffset] = useState(0);
   
   // Animation states
   const [ballTransform, setBallTransform] = useState('');
@@ -119,7 +119,6 @@ export function LoadingScreen() {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setBallTransform(`translate(${translateX}px, ${translateY}px) scale(0.3) rotate(${rotation}deg)`);
-        setHillOffset(200);
         setTitleTransform('translateY(-150px)');
         
         // Start game
@@ -139,8 +138,14 @@ export function LoadingScreen() {
 
   return (
     <div 
-      className={`loading-screen fixed inset-0 z-[20] flex w-screen h-[100dvh] flex-col items-center justify-start pt-[18vh] bg-[linear-gradient(180deg,#5BA3E8_0%,#87CEEB_30%,#B8E6F5_55%,#B8E6F5_100%)] transition-opacity duration-500 ease-out text-white overflow-hidden ${stage === 'hiding' ? 'pointer-events-none' : ''}`}
-      style={{ opacity: containerOpacity, '--hill-offset': `${hillOffset}px` } as any}
+      className={`loading-screen fixed inset-0 z-[20] flex w-screen h-[100dvh] flex-col items-center justify-start pt-[18vh] transition-opacity duration-500 ease-out text-white overflow-hidden ${stage === 'hiding' ? 'pointer-events-none' : ''}`}
+      style={{
+        opacity: containerOpacity,
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.62)), url("${loadingBackgroundUrl}")`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      } as any}
     >
       {/* Title Section */}
       <div 
@@ -217,16 +222,6 @@ export function LoadingScreen() {
           onTouchEnd={handlePointerUp}
         />
       )}
-
-      {/* Goalpost */}
-      <Image
-        src={getAssetPath('/assets/post.svg')}
-        alt="Goalpost"
-        width={120}
-        height={180}
-        className="loading-goalpost"
-      />
-
       {/* Rating Badge */}
       <Image
         src={getAssetPath('/assets/GRAC_ALL.png')}

@@ -1,17 +1,17 @@
 /**
- * InputController - 입력 통합 관리
+
  *
- * SwipeTracker를 래핑하고 게임 입력을 중앙에서 관리합니다.
- * - 터치/마우스 입력 통합
- * - 입력 상태 관리
- * - 스와이프 데이터 처리
+
+
+
+
  */
 
 import * as THREE from 'three';
 import { SwipeTracker, type SwipeData } from './SwipeTracker';
 
 /**
- * 슈팅 콜백 파라미터
+
  */
 export interface ShootParams {
   swipeData: SwipeData;
@@ -19,14 +19,14 @@ export interface ShootParams {
 }
 
 /**
- * InputController 콜백
+
  */
 export interface InputControllerCallbacks {
   onShoot?: (params: ShootParams) => void;
 }
 
 /**
- * 입력 컨트롤러
+
  */
 export class InputController {
   private readonly swipeTracker: SwipeTracker;
@@ -47,29 +47,29 @@ export class InputController {
     this.camera = camera;
     this.callbacks = callbacks;
 
-    // SwipeTracker 생성 (5개 포인트 샘플링)
+
     this.swipeTracker = new SwipeTracker(canvas, 5);
 
-    // Canvas pointerup 이벤트 리스너 추가
+
     this.attachEventListeners();
   }
 
   /**
-   * 이벤트 리스너 등록
+
    */
   private attachEventListeners(): void {
     this.canvas.addEventListener('pointerup', this.handleCanvasPointerUpBound);
   }
 
   /**
-   * Canvas pointerup 핸들러
+
    */
   private handleCanvasPointerUp(e: PointerEvent): void {
     if (!this.isEnabled) {
       return;
     }
 
-    // Canvas가 아닌 요소에서 발생한 이벤트는 무시
+
     if (e.target !== this.canvas) {
       return;
     }
@@ -79,10 +79,10 @@ export class InputController {
       return;
     }
 
-    // 월드 좌표 계산
+
     const worldPositions = this.swipeTracker.getLastSwipeWorldPositions(this.camera, 0);
 
-    // 슈팅 콜백 호출
+
     this.callbacks.onShoot?.({
       swipeData,
       worldPositions
@@ -90,42 +90,42 @@ export class InputController {
   }
 
   /**
-   * 입력 활성화/비활성화
+
    */
   setEnabled(enabled: boolean): void {
     this.isEnabled = enabled;
   }
 
   /**
-   * 입력 활성화 여부
+
    */
   isInputEnabled(): boolean {
     return this.isEnabled;
   }
 
   /**
-   * 마지막 스와이프 데이터 가져오기
+
    */
   getLastSwipe(): SwipeData | null {
     return this.swipeTracker.getLastSwipe();
   }
 
   /**
-   * 마지막 스와이프 월드 좌표 가져오기
+
    */
   getLastSwipeWorldPositions(camera: THREE.PerspectiveCamera, z: number): THREE.Vector3[] | null {
     return this.swipeTracker.getLastSwipeWorldPositions(camera, z);
   }
 
   /**
-   * 콜백 업데이트
+
    */
   setCallbacks(callbacks: InputControllerCallbacks): void {
     this.callbacks = { ...this.callbacks, ...callbacks };
   }
 
   /**
-   * 정리
+
    */
   destroy(): void {
     this.canvas.removeEventListener('pointerup', this.handleCanvasPointerUpBound);

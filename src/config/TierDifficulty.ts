@@ -1,3 +1,5 @@
+import { KEEPER_MAX_CENTER_OFFSET_X } from './Obstacles';
+
 export type TierId = 1 | 2 | 3;
 
 export interface TierDifficultyConfig {
@@ -15,6 +17,8 @@ export interface TierDifficultyConfig {
 
 export const DEFAULT_TIER_ID: TierId = 1;
 
+const K = KEEPER_MAX_CENTER_OFFSET_X;
+
 export const TIER_DIFFICULTY_CONFIGS: Record<TierId, TierDifficultyConfig> = {
   1: {
     tierId: 1,
@@ -22,8 +26,8 @@ export const TIER_DIFFICULTY_CONFIGS: Record<TierId, TierDifficultyConfig> = {
     difficultyName: 'Easy',
     unlockBestScore: 0,
     difficultyAnchorScore: 1,
-    keeperPatrolSpeed: 1.0,
-    keeperPatrolRange: [-1.15, 1.15],
+    keeperPatrolSpeed: 0.95,
+    keeperPatrolRange: [-K * 0.72, K * 0.72],
     additionalObstacleCount: 0,
     shotResetMs: 3000,
     idleTimeoutMs: 75_000,
@@ -34,8 +38,8 @@ export const TIER_DIFFICULTY_CONFIGS: Record<TierId, TierDifficultyConfig> = {
     difficultyName: 'Medium',
     unlockBestScore: 8,
     difficultyAnchorScore: 7,
-    keeperPatrolSpeed: 1.8,
-    keeperPatrolRange: [-1.45, 1.45],
+    keeperPatrolSpeed: 1.55,
+    keeperPatrolRange: [-K * 0.88, K * 0.88],
     additionalObstacleCount: 1,
     shotResetMs: 2500,
     idleTimeoutMs: 60_000,
@@ -46,8 +50,8 @@ export const TIER_DIFFICULTY_CONFIGS: Record<TierId, TierDifficultyConfig> = {
     difficultyName: 'Hard',
     unlockBestScore: 18,
     difficultyAnchorScore: 10,
-    keeperPatrolSpeed: 2.3,
-    keeperPatrolRange: [-1.7, 1.7],
+    keeperPatrolSpeed: 1.95,
+    keeperPatrolRange: [-K, K],
     additionalObstacleCount: 2,
     shotResetMs: 2100,
     idleTimeoutMs: 50_000,

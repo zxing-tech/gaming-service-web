@@ -8,7 +8,7 @@ class GameEventBus {
   private debug = process.env.NODE_ENV === 'development';
 
   /**
-   * 이벤트 발생
+
    */
   emit(event: GameEvent) {
     if (this.debug) {
@@ -28,7 +28,7 @@ class GameEventBus {
   }
 
   /**
-   * 이벤트 구독
+
    */
   on(type: GameEvent['type'], handler: EventHandler) {
     if (!this.listeners.has(type)) {
@@ -40,12 +40,12 @@ class GameEventBus {
       console.log(`[Event Subscribe] ${type}, listeners: ${this.listeners.get(type)!.size}`);
     }
 
-    // 구독 해제 함수 반환
+
     return () => this.off(type, handler);
   }
 
   /**
-   * 이벤트 구독 해제
+
    */
   off(type: GameEvent['type'], handler: EventHandler) {
     const handlers = this.listeners.get(type);
@@ -59,7 +59,7 @@ class GameEventBus {
   }
 
   /**
-   * 특정 타입의 모든 구독자 제거
+
    */
   removeAllListeners(type?: GameEvent['type']) {
     if (type) {
@@ -70,14 +70,14 @@ class GameEventBus {
   }
 
   /**
-   * 구독자 수 확인 (디버깅용)
+
    */
   getListenerCount(type: string): number {
     return this.listeners.get(type)?.size ?? 0;
   }
 
   /**
-   * 모든 이벤트 타입 목록
+
    */
   getEventTypes(): string[] {
     return Array.from(this.listeners.keys());
@@ -86,7 +86,7 @@ class GameEventBus {
 
 export const gameEventBus = new GameEventBus();
 
-// 개발 모드에서 전역 접근
+
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as any).gameEventBus = gameEventBus;
 }

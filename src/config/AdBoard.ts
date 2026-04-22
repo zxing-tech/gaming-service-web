@@ -1,4 +1,5 @@
 export type AdTextItem = {
+  kind?: 'text';
   text: string;
   backgroundColor: string;
   textColor: string;
@@ -8,7 +9,13 @@ export type AdTextItem = {
   textAlign?: 'left' | 'center' | 'right';
 };
 
-export type AdItem = AdTextItem;
+export type AdImageItem = {
+  kind: 'image';
+  imageUrl: string;
+  backgroundColor?: string;
+};
+
+export type AdItem = AdTextItem | AdImageItem;
 
 export interface AdBoardConfig {
   size: {
@@ -70,42 +77,23 @@ export const AD_BOARD_CONFIG: AdBoardConfig = {
     repeatY: 1
   },
   adSets: {
-    // 기본 광고 세트 (일반 게임 중)
+
     default: [
       {
-        text: 'SANSUNGBI',
-        backgroundColor: '#0073ffff',
-        textColor: '#FFFFFF',
-        fontSize: 120,
-        fontWeight: 'bold',
-        textAlign: 'center'
-      },
-	  {
-        text: 'STOPBUSS',
-        backgroundColor: '#059a00ff',
-        textColor: '#FFFFFF',
+        text: 'GRAB GAMING',
+        backgroundColor: '#121212',
+        textColor: '#00E7FF',
         fontSize: 120,
         fontWeight: 'bold',
         textAlign: 'center'
       },
       {
-        text: 'Booger Queen',
-        backgroundColor: '#ffc400ff',
-        textColor: '#ff0000ff',
-        fontSize: 120,
-        fontWeight: 'bold',
-        textAlign: 'center'
-      },
-      {
-        text: 'Coloc Coloc',
-        backgroundColor: '#ff0000ff',
-        textColor: '#FFFFFF',
-        fontSize: 120,
-        fontWeight: 'bold',
-        textAlign: 'center'
+        kind: 'image',
+        imageUrl: '/assets/13782-original.jpg',
+        backgroundColor: '#E41E26'
       }
     ] as const,
-    // 골 넣었을 때 광고 세트
+    // Goal celebration ad set
     goal: [
       {
         text: 'GOAL!!!',
@@ -116,7 +104,7 @@ export const AD_BOARD_CONFIG: AdBoardConfig = {
         textAlign: 'center'
       },
       {
-        text: '골!!!',
+        text: 'GOAL!!!',
         backgroundColor: '#000000',
         textColor: '#FFFFFF',
         fontSize: 120,
@@ -132,7 +120,7 @@ export const AD_BOARD_CONFIG: AdBoardConfig = {
         textAlign: 'center'
       },
       {
-        text: '골!!!',
+        text: 'GOAL!!!',
         backgroundColor: '#000000',
         textColor: '#FFFFFF',
         fontSize: 120,
@@ -140,7 +128,7 @@ export const AD_BOARD_CONFIG: AdBoardConfig = {
         textAlign: 'center'
       },
     ] as const,
-	// 최고기록 경신 광고 세트
+	// High score celebration ad set
 	record: [
       {
         text: 'HIGH!!!',
@@ -159,7 +147,7 @@ export const AD_BOARD_CONFIG: AdBoardConfig = {
         textAlign: 'center'
       },
        {
-        text: '최고!!!',
+        text: 'HIGH!!!',
         backgroundColor: '#FFFFFF',
         textColor: '#000000',
         fontSize: 120,
@@ -167,7 +155,7 @@ export const AD_BOARD_CONFIG: AdBoardConfig = {
         textAlign: 'center'
       },
       {
-        text: '기록!!!',
+        text: 'SCORE!!!',
         backgroundColor: '#000000',
         textColor: '#FFFFFF',
         fontSize: 120,

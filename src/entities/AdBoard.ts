@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { AD_BOARD_CONFIG, type AdTextItem } from '../config/AdBoard';
+import { AD_BOARD_CONFIG, type AdItem, type AdTextItem } from '../config/AdBoard';
 
 export class AdBoard {
   public readonly mesh: THREE.Mesh;
@@ -13,8 +13,10 @@ export class AdBoard {
   private autoResetTimer: number | null = null;
   private isBlinking = false;
   private blinkTimer = 0;
-  private readonly blinkInterval = 0.2; // 0.2초 간격
+  private readonly blinkInterval = 0.2;
   private isInverted = false;
+  private readonly adImageCache = new Map<string, HTMLImageElement>();
+  private readonly adImageLoading = new Set<string>();
 
   constructor(scene: THREE.Scene, world: CANNON.World, depth: number) {
     this.material = new THREE.MeshStandardMaterial({
@@ -60,17 +62,17 @@ export class AdBoard {
   update(deltaTime: number) {
     if (!this.canvasTexture) return;
 
-    // 스크롤 애니메이션
+
     this.scrollOffset = (this.scrollOffset - deltaTime * AD_BOARD_CONFIG.scrollSpeed) % 1;
     this.canvasTexture.offset.x = this.scrollOffset;
 
-    // 깜빡임 로직
+
     if (this.isBlinking) {
       this.blinkTimer += deltaTime;
       if (this.blinkTimer >= this.blinkInterval) {
         this.blinkTimer = 0;
         this.isInverted = !this.isInverted;
-        this.createAdTexture(); // 색상 반전된 텍스처 재생성
+        this.createAdTexture();
       }
     }
   }
@@ -83,7 +85,7 @@ export class AdBoard {
   }
 
   /**
-   * 깜빡임 효과를 시작합니다 (골 넣었을 때).
+
    */
   startBlinking() {
     this.isBlinking = true;
@@ -92,24 +94,24 @@ export class AdBoard {
   }
 
   /**
-   * 깜빡임 효과를 중지하고 원래 색상으로 복원합니다.
+
    */
   stopBlinking() {
     this.isBlinking = false;
     this.blinkTimer = 0;
     this.isInverted = false;
-    this.createAdTexture(); // 원래 색상으로 복원
+    this.createAdTexture();
   }
 
   /**
-   * 광고 세트를 변경합니다.
-   * @param adSetName - 광고 세트 이름 ('default' | 'goal' | 'record')
-   * @param autoResetMs - 자동으로 default로 돌아갈 시간(ms). 0이면 자동 복원 안함
+
+
+
    */
   switchAdSet(adSetName: 'default' | 'goal' | 'record', autoResetMs = 0) {
     if (this.currentAdSet === adSetName) return;
 
-    // 기존 타이머 취소
+
     if (this.autoResetTimer !== null) {
       clearTimeout(this.autoResetTimer);
       this.autoResetTimer = null;
@@ -118,7 +120,7 @@ export class AdBoard {
     this.currentAdSet = adSetName;
     this.createAdTexture();
 
-    // 자동 복원 타이머 설정
+
     if (autoResetMs > 0 && adSetName !== 'default') {
       this.autoResetTimer = window.setTimeout(() => {
         this.currentAdSet = 'default';
@@ -129,37 +131,44 @@ export class AdBoard {
   }
 
   /**
-   * 현재 광고 세트의 텍스트 광고들을 생성하고 하나의 텍스처로 결합합니다.
+
    */
   private createAdTexture() {
     const ads = AD_BOARD_CONFIG.adSets[this.currentAdSet];
 
-    // 모든 광고를 텍스트 캔버스로 생성
-    const canvases = ads.map(ad => this.createTextAd(ad));
 
-    // 즉시 결합
+    const canvases = ads.map(ad => this.createAdCanvas(ad));
+
+
     this.combineCanvases(canvases);
   }
 
 
   /**
-   * 텍스트 광고를 생성합니다.
+
    */
+  private createAdCanvas(config: AdItem): HTMLCanvasElement {
+    if (config.kind === 'image') {
+      return this.createImageAd(config.imageUrl, config.backgroundColor);
+    }
+    return this.createTextAd(config);
+  }
+
   private createTextAd(config: AdTextItem): HTMLCanvasElement {
     const canvas = document.createElement('canvas');
     canvas.width = AD_BOARD_CONFIG.canvas.width;
     canvas.height = AD_BOARD_CONFIG.canvas.height;
     const ctx = canvas.getContext('2d')!;
 
-    // 깜빡임 상태에 따라 색상 반전
+
     const bgColor = this.isInverted ? config.textColor : config.backgroundColor;
     const txtColor = this.isInverted ? config.backgroundColor : config.textColor;
 
-    // 배경색
+
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 텍스트 스타일 설정
+
     const fontWeight = config.fontWeight || 'bold';
     const fontFamily = config.fontFamily || 'Arial, sans-serif';
     ctx.font = `${fontWeight} ${config.fontSize}px ${fontFamily}`;
@@ -167,7 +176,7 @@ export class AdBoard {
     ctx.textAlign = config.textAlign || 'center';
     ctx.textBaseline = 'middle';
 
-    // 텍스트 그리기
+
     const x = config.textAlign === 'left'
       ? 20
       : config.textAlign === 'right'
@@ -179,8 +188,47 @@ export class AdBoard {
     return canvas;
   }
 
+  private createImageAd(imageUrl: string, backgroundColor = '#000000'): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    canvas.width = AD_BOARD_CONFIG.canvas.width;
+    canvas.height = AD_BOARD_CONFIG.canvas.height;
+    const ctx = canvas.getContext('2d')!;
+
+
+    const bg = this.isInverted ? '#FFFFFF' : backgroundColor;
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const cached = this.adImageCache.get(imageUrl);
+    if (cached) {
+      const targetH = canvas.height * 0.78;
+      const scale = targetH / Math.max(cached.height, 1);
+      const targetW = cached.width * scale;
+      const x = (canvas.width - targetW) * 0.5;
+      const y = (canvas.height - targetH) * 0.5;
+      ctx.drawImage(cached, x, y, targetW, targetH);
+      return canvas;
+    }
+
+    if (!this.adImageLoading.has(imageUrl)) {
+      this.adImageLoading.add(imageUrl);
+      const img = new Image();
+      img.onload = () => {
+        this.adImageCache.set(imageUrl, img);
+        this.adImageLoading.delete(imageUrl);
+        this.createAdTexture();
+      };
+      img.onerror = () => {
+        this.adImageLoading.delete(imageUrl);
+      };
+      img.src = imageUrl;
+    }
+
+    return canvas;
+  }
+
   /**
-   * 여러 캔버스를 하나로 결합하여 텍스처를 생성합니다.
+
    */
   private combineCanvases(canvases: HTMLCanvasElement[]) {
     if (canvases.length === 0) return;
@@ -188,29 +236,29 @@ export class AdBoard {
     const canvasWidth = AD_BOARD_CONFIG.canvas.width;
     const canvasHeight = AD_BOARD_CONFIG.canvas.height;
 
-    // 결합된 캔버스 생성
+
     const combined = document.createElement('canvas');
     combined.width = canvasWidth * canvases.length;
     combined.height = canvasHeight;
     const ctx = combined.getContext('2d');
     if (!ctx) return;
 
-    // 모든 캔버스를 가로로 이어붙이기
+
     canvases.forEach((canvas, index) => {
       ctx.drawImage(canvas, canvasWidth * index, 0, canvasWidth, canvasHeight);
     });
 
-    // 현재 스크롤 오프셋 보존 (깜빡임 시 애니메이션이 끊기지 않도록)
+
     const preservedOffset = this.scrollOffset;
 
-    // THREE.js 텍스처로 변환
+
     const texture = new THREE.CanvasTexture(combined);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.ClampToEdgeWrapping;
     texture.repeat.set(AD_BOARD_CONFIG.display.repeatX, AD_BOARD_CONFIG.display.repeatY);
 
-    // 기존 텍스처 교체
+
     if (this.canvasTexture) {
       this.canvasTexture.dispose();
     }
@@ -219,13 +267,13 @@ export class AdBoard {
     this.material.map = texture;
     this.material.needsUpdate = true;
 
-    // 스크롤 오프셋 복원 (깜빡임 중일 때는 보존, 새로 시작할 때는 0)
+
     this.scrollOffset = preservedOffset;
     this.canvasTexture.offset.x = preservedOffset;
   }
 
   /**
-   * 리소스 정리
+
    */
   destroy() {
     if (this.autoResetTimer !== null) {

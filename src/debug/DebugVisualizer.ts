@@ -1,12 +1,12 @@
 /**
- * DebugVisualizer - 디버그 시각화 전용 클래스
+
  *
- * 게임의 모든 디버그 시각화를 관리합니다:
- * - 콜라이더 시각화 (공, 골대, 광고판)
- * - 궤적 예측 라인
- * - 타겟 마커
- * - 스와이프 디버그 라인/포인트
- * - 축 화살표 (공의 회전)
+
+
+
+
+
+
  */
 
 import * as THREE from 'three';
@@ -27,7 +27,7 @@ import { DEBUG_CONFIG } from '../config/Debug';
 import { COLORS } from '../config/Colors';
 
 /**
- * DebugVisualizer 생성자 매개변수
+
  */
 export interface DebugVisualizerConfig {
   scene: THREE.Scene;
@@ -39,7 +39,7 @@ export interface DebugVisualizerConfig {
 }
 
 /**
- * 디버그 시각화 관리 클래스
+
  */
 export class DebugVisualizer {
   private readonly scene: THREE.Scene;
@@ -52,28 +52,28 @@ export class DebugVisualizer {
 
   private debugMode = false;
 
-  // 콜라이더 시각화
+
   private readonly ballColliderMesh: THREE.Mesh;
   private readonly goalColliderGroup: THREE.Group;
   private readonly adBoardColliderGroup: THREE.Group;
 
-  // 궤적 예측 라인
+
   private readonly trajectoryGeometry: LineGeometry;
   private readonly trajectoryMaterial: LineMaterial;
   private readonly trajectoryLine: Line2;
   private readonly trajectoryPositions: Float32Array;
 
-  // 타겟 마커
+
   private readonly targetMarker: THREE.Mesh;
 
-  // 스와이프 디버그
+
   private readonly swipeDebugGeometry: LineGeometry;
   private readonly swipeDebugMaterial: LineMaterial;
   private readonly swipeDebugLine: Line2;
   private readonly swipePointMarkers: THREE.Sprite[] = [];
   private readonly swipePointLabels: HTMLDivElement[] = [];
 
-  // 축 화살표
+
   private readonly axisArrows: THREE.ArrowHelper[];
   private readonly tempQuaternion = new THREE.Quaternion();
   private readonly tempAxisX = new THREE.Vector3();
@@ -89,13 +89,13 @@ export class DebugVisualizer {
     this.inputController = config.inputController;
     this.inputController = config.inputController;
 
-    // 콜라이더 시각화 생성
+
     this.ballColliderMesh = this.createBallColliderMesh();
     this.goalColliderGroup = this.createGoalColliderGroup();
     this.adBoardColliderGroup = this.createAdBoardColliderGroup();
     this.axisArrows = this.createAxisArrows();
 
-    // 궤적 예측 라인 생성
+
     this.trajectoryPositions = new Float32Array(DEBUG_CONFIG.trajectory.sampleCount * 3);
     this.trajectoryGeometry = new LineGeometry();
     this.trajectoryGeometry.setPositions(Array.from(this.trajectoryPositions));
@@ -113,7 +113,7 @@ export class DebugVisualizer {
     this.trajectoryLine.visible = false;
     this.scene.add(this.trajectoryLine);
 
-    // 스와이프 디버그 라인 생성
+
     this.swipeDebugGeometry = new LineGeometry();
     this.swipeDebugMaterial = new LineMaterial({
       color: COLORS.debug.swipeDebug,
@@ -130,18 +130,18 @@ export class DebugVisualizer {
     this.swipeDebugLine.renderOrder = DEBUG_CONFIG.renderOrder.swipeDebugLine;
     this.scene.add(this.swipeDebugLine);
 
-    // 스와이프 포인트 마커 생성 (5개)
+
     this.createSwipePointMarkers(5);
 
-    // 타겟 마커 생성
+
     this.targetMarker = this.createTargetMarker();
 
-    // 초기 visibility 적용
+
     this.applyDebugVisibility([]);
   }
 
   /**
-   * 공 콜라이더 메시 생성
+
    */
   private createBallColliderMesh(): THREE.Mesh {
     const geometry = new THREE.SphereGeometry(BALL_RADIUS, 16, 16);
@@ -162,7 +162,7 @@ export class DebugVisualizer {
   }
 
   /**
-   * 골대 콜라이더 그룹 생성
+
    */
   private createGoalColliderGroup(): THREE.Group {
     const group = new THREE.Group();
@@ -260,7 +260,7 @@ export class DebugVisualizer {
   }
 
   /**
-   * 광고판 콜라이더 그룹 생성
+
    */
   private createAdBoardColliderGroup(): THREE.Group {
     const group = new THREE.Group();
@@ -300,7 +300,7 @@ export class DebugVisualizer {
   }
 
   /**
-   * 축 화살표 생성 (공의 회전축 시각화)
+
    */
   private createAxisArrows(): THREE.ArrowHelper[] {
     const origin = new THREE.Vector3(0, 0, 0);
@@ -324,7 +324,7 @@ export class DebugVisualizer {
   }
 
   /**
-   * 타겟 마커 생성 (반투명 빨간 공)
+
    */
   private createTargetMarker(): THREE.Mesh {
     const geometry = new THREE.SphereGeometry(
@@ -346,23 +346,23 @@ export class DebugVisualizer {
   }
 
   /**
-   * 스와이프 포인트 마커 생성
+
    */
   private createSwipePointMarkers(count: number): void {
     for (let i = 0; i < count; i++) {
-      // 3D 스프라이트 마커 (원형)
+
       const canvas = document.createElement('canvas');
       canvas.width = 64;
       canvas.height = 64;
       const ctx = canvas.getContext('2d')!;
 
-      // 원 그리기
+
       ctx.fillStyle = '#ffff00';
       ctx.beginPath();
       ctx.arc(32, 32, 28, 0, Math.PI * 2);
       ctx.fill();
 
-      // 테두리
+
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = 4;
       ctx.stroke();
@@ -380,7 +380,7 @@ export class DebugVisualizer {
       this.scene.add(sprite);
       this.swipePointMarkers.push(sprite);
 
-      // HTML 레이블 (번호)
+
       const label = document.createElement('div');
       label.textContent = (i + 1).toString();
       label.style.position = 'fixed';
@@ -399,7 +399,7 @@ export class DebugVisualizer {
   }
 
   /**
-   * 디버그 모드 토글
+
    */
   public toggleDebugMode(enabled?: boolean): boolean {
     const next = enabled ?? !this.debugMode;
@@ -412,7 +412,7 @@ export class DebugVisualizer {
   }
 
   /**
-   * 디버그 가시성 적용
+
    */
   public applyDebugVisibility(obstacles: Obstacle[]): void {
     const visible = this.debugMode;
@@ -422,7 +422,7 @@ export class DebugVisualizer {
     this.adBoardColliderGroup.visible = visible;
     this.trajectoryLine.visible = visible;
     this.trajectoryLine.visible = visible;
-    this.targetMarker.visible = visible && this.targetMarker.visible; // visible 상태 유지하되 debugMode에 따라
+    this.targetMarker.visible = visible && this.targetMarker.visible;
     const hasSwipe = this.inputController.getLastSwipe() !== null;
     this.swipeDebugLine.visible = visible && hasSwipe;
     this.swipePointMarkers.forEach((marker) => {
@@ -437,7 +437,7 @@ export class DebugVisualizer {
   }
 
   /**
-   * 콜라이더 시각화 업데이트 (매 프레임)
+
    */
   public updateColliderVisuals(): void {
     if (!this.debugMode) {
@@ -453,7 +453,7 @@ export class DebugVisualizer {
   }
 
   /**
-   * 궤적 예측 라인 업데이트
+
    */
   private updateTrajectoryLine(): void {
     const positions = this.trajectoryPositions;
@@ -480,7 +480,7 @@ export class DebugVisualizer {
   }
 
   /**
-   * 축 화살표 업데이트 (공의 회전)
+
    */
   private updateAxisArrows(): void {
     const { position, quaternion } = this.ball.body;
@@ -500,7 +500,7 @@ export class DebugVisualizer {
   }
 
   /**
-   * 스와이프 디버그 라인 업데이트
+
    */
   public updateSwipeDebugLine(): void {
     if (!this.debugMode) {
@@ -519,7 +519,7 @@ export class DebugVisualizer {
       return;
     }
 
-    // 스와이프 포인트를 월드 좌표로 변환 (공의 초기 위치 Z 좌표 사용)
+
     const worldPositions = this.inputController.getLastSwipeWorldPositions(this.camera, 0);
 
     if (!worldPositions || worldPositions.length < 2) {
@@ -533,7 +533,7 @@ export class DebugVisualizer {
       return;
     }
 
-    // Float32Array로 변환
+
     const positions: number[] = [];
     for (const pos of worldPositions) {
       positions.push(pos.x, pos.y, pos.z);
@@ -544,15 +544,15 @@ export class DebugVisualizer {
     this.swipeDebugGeometry.computeBoundingSphere();
     this.swipeDebugLine.visible = true;
 
-    // 포인트 마커 업데이트
+
     const tempVector = new THREE.Vector3();
     worldPositions.forEach((pos, i) => {
       if (i < this.swipePointMarkers.length) {
-        // 3D 마커 위치
+
         this.swipePointMarkers[i].position.copy(pos);
         this.swipePointMarkers[i].visible = true;
 
-        // 2D 레이블 위치 (화면 좌표로 변환)
+
         tempVector.copy(pos);
         tempVector.project(this.camera);
 
@@ -565,7 +565,7 @@ export class DebugVisualizer {
       }
     });
 
-    // 남은 마커 숨기기
+
     for (let i = worldPositions.length; i < this.swipePointMarkers.length; i++) {
       this.swipePointMarkers[i].visible = false;
       this.swipePointLabels[i].style.display = 'none';
@@ -573,7 +573,7 @@ export class DebugVisualizer {
   }
 
   /**
-   * 타겟 마커 위치 설정 (슛 실행 시)
+
    */
   public setTargetMarkerPosition(position: THREE.Vector3): void {
     this.targetMarker.position.copy(position);
@@ -581,14 +581,14 @@ export class DebugVisualizer {
   }
 
   /**
-   * 타겟 마커 숨김
+
    */
   public hideTargetMarker(): void {
     this.targetMarker.visible = false;
   }
 
   /**
-   * 리사이즈 처리
+
    */
   public handleResize(width: number, height: number): void {
     this.trajectoryMaterial.resolution.set(width, height);
@@ -596,17 +596,17 @@ export class DebugVisualizer {
   }
 
   /**
-   * 디버그 모드 상태 가져오기
+
    */
   public isDebugMode(): boolean {
     return this.debugMode;
   }
 
   /**
-   * 리소스 정리
+
    */
   public dispose(): void {
-    // Scene에서 제거
+
     this.scene.remove(this.ballColliderMesh);
     this.scene.remove(this.goalColliderGroup);
     this.scene.remove(this.adBoardColliderGroup);
@@ -616,10 +616,10 @@ export class DebugVisualizer {
     this.axisArrows.forEach((arrow) => this.scene.remove(arrow));
     this.swipePointMarkers.forEach((marker) => this.scene.remove(marker));
 
-    // HTML 레이블 제거
+
     this.swipePointLabels.forEach((label) => label.remove());
 
-    // Geometry/Material 정리
+
     this.ballColliderMesh.geometry.dispose();
     (this.ballColliderMesh.material as THREE.Material).dispose();
     this.goalColliderGroup.traverse((child) => {

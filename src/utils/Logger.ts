@@ -1,39 +1,39 @@
 /**
- * 로그 레벨 (숫자가 클수록 높은 레벨)
+
  */
 export const LogLevel = {
-  DEBUG: 0, // 상세한 디버그 정보
-  INFO: 1, // 일반 정보
-  WARN: 2, // 경고
-  ERROR: 3, // 에러
-  NONE: 4 // 로그 비활성화
+  DEBUG: 0,
+  INFO: 1,
+  WARN: 2,
+  ERROR: 3,
+  NONE: 4
 } as const;
 
 export type LogLevel = typeof LogLevel[keyof typeof LogLevel];
 
 /**
- * 전역 Logger 설정 및 기본 로거
+
  */
 class Logger {
   private static level: LogLevel = LogLevel.DEBUG;
   private static enabled = typeof process !== 'undefined' ? process.env.NODE_ENV !== 'production' : false;
 
   /**
-   * 로그 레벨 설정
+
    */
   static setLevel(level: LogLevel) {
     this.level = level;
   }
 
   /**
-   * 로거 활성화/비활성화
+
    */
   static setEnabled(enabled: boolean) {
     this.enabled = enabled;
   }
 
   /**
-   * 현재 설정 확인
+
    */
   static getConfig() {
     return {
@@ -65,9 +65,9 @@ class Logger {
 }
 
 /**
- * 카테고리별 Logger
+
  *
- * 사용 예시:
+
  * ```typescript
  * const log = new CategoryLogger('Shooting');
  * log.info('Shot executed', { velocity, angularVelocity });

@@ -42,15 +42,15 @@ export function GameOverModal() {
 
   const handleShare = async () => {
     try {
-      // 1. 현재 점수 가져오기
+
       const currentScore = score;
 
-      // 2. 랜덤 메시지 생성
+
       const message = getRandomShareMessage(currentScore);
 
-      // 3. 토스 앱 여부에 따라 다른 공유 링크 사용
+
       if (isTossApp()) {
-        // 토스 앱: 딥링크 + 토스 공유 링크 사용
+
         const environment = typeof process !== 'undefined'
           ? process.env.NEXT_PUBLIC_ENVIRONMENT ?? 'development'
           : 'development';
@@ -67,20 +67,20 @@ export function GameOverModal() {
 
         console.log('✅ Share successful! (Toss app)');
       } else {
-        // 웹: GitHub Pages 링크 사용
+
         const webLink = 'https://inticoy.github.io/snapshoot';
         const shareText = `${message}\\n${webLink}`;
 
         console.log(`📤 Share started (web) - link: ${webLink}`);
 
-        // Web Share API 사용 가능 여부 확인
+
         if (navigator.share) {
           await navigator.share({
             text: shareText
           });
           console.log('✅ Share successful! (Web Share API)');
         } else {
-          // Web Share API 미지원 시 클립보드 복사
+
           await navigator.clipboard.writeText(shareText);
           showToast.success('Share message copied to clipboard!\\nPaste it anywhere you like.');
           console.log('✅ Clipboard copy complete!');
@@ -100,14 +100,14 @@ export function GameOverModal() {
   };
 
   const handleRanking = async () => {
-    // 게임센터가 비활성화되어 있으면 안내 메시지 표시
+
     if (!TOSS_CONFIG.GAME_CENTER_ENABLED) {
       console.warn('ℹ️ Game Center is not enabled yet.');
       showToast.info('Ranking is coming soon.\\nPlease check back later!');
       return;
     }
 
-    // 토스 앱 환경이 아니면 경고 메시지 표시
+
     if (!isTossGameCenterAvailable()) {
       console.warn('ℹ️ Ranking is only available in the Toss app.');
       showToast.info('Ranking is only available in the Toss app.\\nPlease run the game in Toss.');

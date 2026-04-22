@@ -1,11 +1,11 @@
 /**
- * BallController - 공 제어 로직
+
  *
- * Ball 엔티티를 래핑하고 공의 물리 상태를 관리합니다.
- * - 공의 중력 on/off
- * - 공의 위치/속도 리셋
- * - 샷 준비
- * - 공의 상태 동기화
+
+
+
+
+
  */
 
 import * as THREE from 'three';
@@ -14,14 +14,14 @@ import { Ball } from './Ball';
 import { BALL_START_POSITION, BALL_PHYSICS } from '../../config/Ball';
 
 /**
- * 공 컨트롤러
+
  */
 export class BallController {
   private readonly ball: Ball;
   private readonly ballInitialMass: number;
   private isBallGravityEnabled = false;
 
-  /** 디버깅용 임시 위치 */
+
   private readonly tempBallPosition = new THREE.Vector3();
 
   constructor(ball: Ball) {
@@ -30,22 +30,22 @@ export class BallController {
   }
 
   /**
-   * Ball 엔티티 가져오기
+
    */
   getBall(): Ball {
     return this.ball;
   }
 
   /**
-   * 중력 활성화 여부
+
    */
   isGravityEnabled(): boolean {
     return this.isBallGravityEnabled;
   }
 
   /**
-   * 공의 현재 위치를 tempBallPosition에 복사
-   * (Goal 넷 펄스 등 디버깅용)
+
+
    */
   copyPositionToTemp(): THREE.Vector3 {
     this.tempBallPosition.set(
@@ -57,7 +57,7 @@ export class BallController {
   }
 
   /**
-   * 샷 준비 - 중력 활성화 및 모든 힘/속도 초기화
+
    */
   prepareBallForShot(): void {
     this.setBallGravityEnabled(true);
@@ -69,7 +69,7 @@ export class BallController {
   }
 
   /**
-   * 공 초기 위치로 리셋 (중력 off)
+
    */
   resetBall(): void {
     this.setBallGravityEnabled(false);
@@ -80,7 +80,7 @@ export class BallController {
       BALL_START_POSITION.z
     );
 
-    // 초기 회전 적용
+
     const tempEuler = new THREE.Euler(
       BALL_PHYSICS.startRotation.x,
       BALL_PHYSICS.startRotation.y,
@@ -100,7 +100,7 @@ export class BallController {
   }
 
   /**
-   * 공만 리셋 (스코어/난이도 유지용)
+
    */
   resetBallOnly(): void {
     this.setBallGravityEnabled(false);
@@ -111,7 +111,7 @@ export class BallController {
       BALL_START_POSITION.z
     );
 
-    // 초기 회전 적용
+
     const tempEuler = new THREE.Euler(
       BALL_PHYSICS.startRotation.x,
       BALL_PHYSICS.startRotation.y,
@@ -131,7 +131,7 @@ export class BallController {
   }
 
   /**
-   * 중력 활성화/비활성화
+
    */
   private setBallGravityEnabled(enabled: boolean): void {
     if (enabled === this.isBallGravityEnabled) {
@@ -160,8 +160,8 @@ export class BallController {
   }
 
   /**
-   * 공의 kinematic 프레임 동기화
-   * (previousPosition, interpolatedPosition 등)
+
+
    */
   private syncBallKinematicFrames(): void {
     this.ball.body.previousPosition.copy(this.ball.body.position);

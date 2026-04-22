@@ -13,17 +13,17 @@ const chantUrl = getAssetPath('/assets/audio/chant.mp3');
 const bg1Url = getAssetPath('/assets/audio/bg1.mp3');
 
 /**
- * 효과음 키 타입
+
  */
 export type SoundKey = 'kick' | 'bounce' | 'goal' | 'save' | 'post' | 'reset' | 'net' | 'cheer' | 'record';
 
 /**
- * 음악 트랙 타입
+
  */
 export type MusicTrack = 'chant' | 'gameplay';
 
 /**
- * 효과음 설정 인터페이스
+
  */
 export interface SoundConfig {
   url: string;
@@ -31,7 +31,7 @@ export interface SoundConfig {
 }
 
 /**
- * 음악 설정 인터페이스
+
  */
 export interface MusicConfig {
   urls: string[];
@@ -41,14 +41,14 @@ export interface MusicConfig {
 }
 
 /**
- * 오디오 설정
+
  *
- * - sounds: 짧은 효과음 (이벤트 기반)
- * - music: 긴 배경음악 (루프 재생)
+
+
  */
 export const AUDIO_CONFIG = {
   /**
-   * 효과음 설정
+
    */
   sounds: {
     kick: { url: kickUrl, volume: 1.0 },
@@ -63,11 +63,11 @@ export const AUDIO_CONFIG = {
   } as const satisfies Record<SoundKey, SoundConfig>,
 
   /**
-   * 음악 설정
+
    */
   music: {
     /**
-     * 관중 함성 (로딩 화면 스와이프 후 재생)
+
      */
     chant: {
       urls: [chantUrl],
@@ -75,10 +75,10 @@ export const AUDIO_CONFIG = {
       loop: true
     },
     /**
-     * 게임플레이 배경음악 (n곡 순환 재생)
+
      */
     gameplay: {
-      urls: [bg1Url], // 추후 곡 추가 가능
+      urls: [bg1Url],
       volume: 1.0,
       loop: true,
       shuffle: true

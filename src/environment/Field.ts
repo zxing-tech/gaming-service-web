@@ -72,7 +72,7 @@ export class Field {
       this.goalDepth + AD_BOARD_CONFIG.position.depthOffset
     );
 
-    // 샘플 관중석 추가
+
     this.stands = new Stands(
       scene,
       this.goalDepth + AD_BOARD_CONFIG.position.depthOffset

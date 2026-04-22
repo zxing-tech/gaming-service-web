@@ -14,7 +14,7 @@ export interface SwipeData {
 }
 
 /**
- * 스와이프 입력을 추적하고 저장하는 클래스
+
  */
 export class SwipeTracker {
   private isTracking = false;
@@ -57,13 +57,13 @@ export class SwipeTracker {
 
     const point = this.createPoint(e);
 
-    // 중복 방지: 마지막 점과 너무 가까우면 무시 (1ms 이내, 1px 이내)
+
     const lastPoint = this.currentSwipe[this.currentSwipe.length - 1];
     if (lastPoint) {
       const timeDiff = point.timestamp - lastPoint.timestamp;
       const distSq = (point.x - lastPoint.x) ** 2 + (point.y - lastPoint.y) ** 2;
 
-      // 1ms 이내이고 1px 이내면 스킵
+
       if (timeDiff < 1 && distSq < 1) {
         return;
       }
@@ -78,13 +78,13 @@ export class SwipeTracker {
 
     const point = this.createPoint(e);
 
-    // 중복 방지: 마지막 점과 너무 가까우면 무시
+
     const lastPoint = this.currentSwipe[this.currentSwipe.length - 1];
     if (lastPoint) {
       const timeDiff = point.timestamp - lastPoint.timestamp;
       const distSq = (point.x - lastPoint.x) ** 2 + (point.y - lastPoint.y) ** 2;
 
-      // 1ms 이내가 아니거나 1px 이상 떨어져 있으면 추가
+
       if (timeDiff >= 1 || distSq >= 1) {
         this.currentSwipe.push(point);
       }
@@ -117,7 +117,7 @@ export class SwipeTracker {
       return;
     }
 
-    // 스와이프 포인트를 균등하게 샘플링
+
     const sampledPoints = this.samplePoints(this.currentSwipe, this.maxPoints);
 
     const startTime = this.currentSwipe[0].timestamp;
@@ -130,7 +130,7 @@ export class SwipeTracker {
       duration: endTime - startTime
     };
 
-    // 디버그 로그 (필요시 주석 해제)
+
     // console.log('Swipe captured:', {
     //   totalPoints: this.currentSwipe.length,
     //   sampledPoints: sampledPoints.length,
@@ -141,8 +141,8 @@ export class SwipeTracker {
   }
 
   /**
-   * 포인트를 거리 기반 균등 샘플링
-   * 5개 포인트: 0%, 25%, 50%, 75%, 100% 거리에 가장 가까운 점
+
+
    */
   private samplePoints(points: SwipePoint[], targetCount: number): SwipePoint[] {
     if (points.length <= targetCount) {
@@ -152,7 +152,7 @@ export class SwipeTracker {
     const startPoint = points[0];
     const endPoint = points[points.length - 1];
 
-    // 1. 누적 거리 계산
+
     const cumulativeDistances: number[] = [0];
     for (let i = 1; i < points.length; i++) {
       const dx = points[i].x - points[i - 1].x;
@@ -163,7 +163,7 @@ export class SwipeTracker {
 
     const totalDistance = cumulativeDistances[cumulativeDistances.length - 1];
 
-    // 2. 거리가 0이면 인덱스 기반으로 폴백
+
     if (totalDistance === 0) {
       const step = (points.length - 1) / (targetCount - 1);
       const sampled: SwipePoint[] = [];
@@ -176,8 +176,8 @@ export class SwipeTracker {
       return sampled;
     }
 
-    // 3. 거리 기반 샘플링: 0%, 25%, 50%, 75%, 100%
-    // 중복 방지를 위해 이미 선택된 인덱스 추적
+
+
     const sampled: SwipePoint[] = [startPoint];
     let lastIndex = 0;
 
@@ -185,11 +185,11 @@ export class SwipeTracker {
       const targetRatio = i / (targetCount - 1);
       const targetDistance = totalDistance * targetRatio;
 
-      // 남은 포인트 수를 고려해 선택 가능한 인덱스 범위 계산
+
       const minIndex = lastIndex + 1;
       const maxIndex = points.length - 1 - (targetCount - i - 1);
 
-      // targetDistance 이상이 되는 첫 번째 인덱스 탐색
+
       let candidateIndex = minIndex;
       while (
         candidateIndex < points.length - 1 &&
@@ -198,10 +198,10 @@ export class SwipeTracker {
         candidateIndex++;
       }
 
-      // 범위를 벗어나지 않도록 조정
+
       candidateIndex = Math.max(minIndex, Math.min(candidateIndex, maxIndex));
 
-      // 이전 인덱스와의 거리가 더 가깝다면 교체 (단, 순서 유지)
+
       const prevIndex = Math.max(minIndex, candidateIndex - 1);
       if (prevIndex > lastIndex) {
         const prevDiff = Math.abs(cumulativeDistances[prevIndex] - targetDistance);
@@ -221,16 +221,16 @@ export class SwipeTracker {
   }
 
   /**
-   * 마지막 스와이프 데이터를 가져옴
+
    */
   public getLastSwipe(): SwipeData | null {
     return this.lastSwipe;
   }
 
   /**
-   * 마지막 스와이프 데이터를 3D 월드 좌표로 변환
-   * @param camera 카메라
-   * @param targetZ 목표 Z 좌표 (기본값: 0)
+
+
+
    */
   public getLastSwipeWorldPositions(camera: THREE.Camera, targetZ = 0): THREE.Vector3[] | null {
     if (!this.lastSwipe) return null;
@@ -241,19 +241,19 @@ export class SwipeTracker {
     const canvasHeight = rect.height;
 
     for (const point of this.lastSwipe.points) {
-      // 화면 좌표를 NDC (Normalized Device Coordinates)로 변환
+
       const ndcX = (point.x / canvasWidth) * 2 - 1;
       const ndcY = -(point.y / canvasHeight) * 2 + 1;
 
-      // NDC를 월드 좌표로 변환
+
       const vector = new THREE.Vector3(ndcX, ndcY, 0.5);
       vector.unproject(camera);
 
-      // 카메라에서 레이 방향 계산
+
       const cameraPosition = camera.position.clone();
       const direction = vector.sub(cameraPosition).normalize();
 
-      // targetZ 평면과의 교점 계산
+
       const distance = (targetZ - cameraPosition.z) / direction.z;
       const worldPoint = cameraPosition.clone().add(direction.multiplyScalar(distance));
 
@@ -264,14 +264,14 @@ export class SwipeTracker {
   }
 
   /**
-   * 현재 추적 중인지 확인
+
    */
   public isCurrentlyTracking(): boolean {
     return this.isTracking;
   }
 
   /**
-   * 이벤트 리스너 제거
+
    */
   public destroy() {
     this.canvas.removeEventListener('pointerdown', this.handlePointerDownBound);

@@ -1,8 +1,23 @@
 import { getAssetPath } from '../utils/assetPath';
+import { GOAL_WIDTH } from './Goal';
 
-const keeperTextureUrl = getAssetPath('/assets/keeper/goalkeeper-save-center.png');
-const keeperWallWidth = 2.0;
-const keeperWallHeight = 2.9;
+/** Primary FBX: mesh + default animations (Mixamo Goalkeeper Body Block). */
+export const MIXAMO_KEEPER_FBX_BASE = getAssetPath('/assets/models/Goalkeeper Body Block (3).fbx');
+/** Second Body Block variant — merged on the same rig; build keeps exactly one clip per file (two animations total). */
+export const MIXAMO_KEEPER_FBX_EXTRA = [
+  getAssetPath('/assets/models/Goalkeeper Body Block (2).fbx'),
+  getAssetPath('/assets/models/Goalkeeper Idle.fbx')
+] as const;
+
+/** Plane size in world units — sized to fit inside GOAL_HEIGHT (2) and GOAL_WIDTH (3) opening. */
+const keeperWallWidth = 1.32;
+
+/** Half-width of the keeper visual; used to clamp patrol so the body stays inside the posts. */
+export const KEEPER_VISUAL_HALF_WIDTH = keeperWallWidth / 2;
+
+/** Max |x| for keeper center position (small margin inside the goal mouth). */
+export const KEEPER_MAX_CENTER_OFFSET_X =
+  GOAL_WIDTH / 2 - KEEPER_VISUAL_HALF_WIDTH - 0.06;
 const woodTextureUrl = getAssetPath('/assets/models/obstacle/wood.jpg');
 const whiteDroneTextureUrl = getAssetPath('/assets/models/obstacle/whiteDrone.png');
 const cokeModelUrl = getAssetPath('/assets/models/bottle/coke.glb');
@@ -28,15 +43,15 @@ export interface Vector3Range {
 }
 
 export interface ObstacleTransformConfig {
-  /** 고정 위치 */
+
   position?: Vector3Init;
-  /** 범위에서 무작위 선택 */
+
   positionRange?: Vector3Range;
-  /** 고정 회전 (라디안 단위) */
+
   rotation?: Vector3Init;
-  /** 범위 회전 (라디안 단위) */
+
   rotationRange?: Vector3Range;
-  /** 스케일 */
+
   scale?: number | Vector3Init;
 }
 
@@ -67,6 +82,10 @@ export interface PrimitiveRenderConfig {
 export interface ModelRenderConfig {
   kind: 'model';
   assetUrl: string;
+  /** Defaults to GLTF/GLB. Use `fbx` for Mixamo-style exports. */
+  sourceFormat?: 'gltf' | 'fbx';
+  /** Same rig as `assetUrl`; clips are merged onto the primary skeleton in the obstacle. */
+  extraAnimationUrls?: readonly string[];
   scale?: number | Vector3Init;
   pivotOffset?: Vector3Init;
 }
@@ -153,15 +172,15 @@ export interface ObstacleBlueprint {
 }
 
 export interface ObstacleInstanceConfig {
-  /** 사용할 블루프린트 ID */
+
   blueprintId: string;
-  /** 개별 명칭 (디버그용) */
+
   label?: string;
-  /** 기본 트랜스폼 오버라이드 */
+
   transform?: ObstacleTransformConfig;
-  /** 콜라이더 오버라이드 */
+
   collider?: ObstacleColliderConfig;
-  /** 행동 정의 */
+
   behavior?: ObstacleBehaviorConfig;
 }
 
@@ -169,23 +188,18 @@ export const OBSTACLE_BLUEPRINTS: Record<string, ObstacleBlueprint> = {
   keeperWall: {
     id: 'keeperWall',
     render: {
-      kind: 'primitive',
-      shape: 'plane',
-      size: { x: keeperWallWidth, y: keeperWallHeight },
-      material: {
-        textureUrl: keeperTextureUrl,
-        doubleSided: true,
-        transparent: true,
-        opacity: 1,
-        alphaTest: 0.01
-      }
+      kind: 'model',
+      sourceFormat: 'fbx',
+      assetUrl: MIXAMO_KEEPER_FBX_BASE,
+      extraAnimationUrls: MIXAMO_KEEPER_FBX_EXTRA,
+      scale: 0.011
     },
     collider: {
       shape: 'box',
-      size: { x: 1.95, y: 2.6, z: 0.45 }
+      size: { x: 1.26, y: 1.62, z: 0.34 }
     },
     defaultTransform: {
-      position: { y: 1.0 }
+      position: { y: 0 }
     }
   },
   woodVertical: {

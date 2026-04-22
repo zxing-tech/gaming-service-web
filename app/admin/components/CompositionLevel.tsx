@@ -71,7 +71,7 @@ export function CompositionLevel({ level }: CompositionLevelProps) {
             {/* Obstacle List */}
             <div className="flex flex-wrap gap-2">
               {sample.obstacles.length === 0 ? (
-                <p className="text-slate-500 text-sm">장애물 없음</p>
+                <p className="text-slate-500 text-sm">No obstacles</p>
               ) : (
                 sample.obstacles.map((instance, idx) => (
                   <span
