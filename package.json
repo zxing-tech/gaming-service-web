@@ -1,5 +1,6 @@
 {
   "name": "snapshoot",
+  "author": "Aravind Ramachandran",
   "private": true,
   "version": "1.0.0",
   "type": "module",

@@ -56,7 +56,13 @@ export default function PrivacyPage() {
 
       <section>
         <h2>8. Contact</h2>
-        <p>If you have questions, please contact us via GitHub Issues.</p>
+        <p>
+          Questions about this policy:{' '}
+          <a href="https://github.com/zxing-tech/gaming-service-web/issues">
+            github.com/zxing-tech/gaming-service-web/issues
+          </a>{' '}
+          (maintainer: Aravind Ramachandran).
+        </p>
       </section>
     </main>
   );

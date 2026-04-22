@@ -16,7 +16,8 @@ const sections = [
   },
   {
     heading: '3. Intellectual Property',
-    body: 'All SnapShoot content, design, and code are protected by copyright law. Unauthorized copying, distribution, or modification is prohibited.'
+    body:
+      'SnapShoot content, design, and code are owned by Aravind Ramachandran (Grab Gaming). Unauthorized copying, distribution, or modification is prohibited.'
   },
   {
     heading: '4. Disclaimer',
@@ -28,7 +29,8 @@ const sections = [
   },
   {
     heading: '6. Contact',
-    body: 'For questions about these terms, please use GitHub Issues.'
+    body:
+      'Questions: https://github.com/zxing-tech/gaming-service-web/issues (Aravind Ramachandran).'
   }
 ];
 

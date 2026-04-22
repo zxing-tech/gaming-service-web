@@ -68,7 +68,9 @@ export function GameOverModal() {
         console.log('✅ Share successful! (Toss app)');
       } else {
 
-        const webLink = 'https://inticoy.github.io/snapshoot';
+        const webLink =
+          (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_WEB_SHARE_URL) ||
+          'https://github.com/zxing-tech/gaming-service-web';
         const shareText = `${message}\\n${webLink}`;
 
         console.log(`📤 Share started (web) - link: ${webLink}`);

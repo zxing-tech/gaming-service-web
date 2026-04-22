@@ -15,7 +15,6 @@ out
 .vercel
 *.local
 
-# Editor directories and files
 .claude
 .vscode/*
 !.vscode/extensions.json
@@ -27,8 +26,7 @@ out
 *.sln
 *.sw?
 
-# Toss Apps
-*.ait
+
 
 # Environment variables
 .env

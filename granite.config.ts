@@ -1,13 +1,15 @@
-import { defineConfig } from '@apps-in-toss/web-framework/config';
+import { defineConfig, type AppsInTossWebConfig } from '@apps-in-toss/web-framework/config';
 
-export default defineConfig({
+/** Granite supports this; not yet on `AppsInTossWebConfig` in all SDK versions */
+type GraniteGameCenter = { gameCenter?: { enabled: boolean } };
+
+const config: AppsInTossWebConfig & GraniteGameCenter = {
   webViewProps: { type: 'game' },
   appName: 'snapshoot',
   brand: {
-    displayName: '스냅슛', // 화면에 노출될 앱의 한글 이름으로 바꿔주세요.
-    primaryColor: '#35CD21', // 화면에 노출될 앱의 기본 색상으로 바꿔주세요.
-    icon: 'https://raw.githubusercontent.com/inticoy/snapshoot/main/public/icon.svg', // 화면에 노출될 앱의 아이콘 이미지 주소로 바꿔주세요.
-    bridgeColorMode: 'basic',
+    displayName: 'SnapShoot',
+    primaryColor: '#35CD21',
+    icon: 'https://raw.githubusercontent.com/zxing-tech/gaming-service-web/main/public/icon.svg',
   },
   web: {
     host: 'localhost',
@@ -19,8 +21,9 @@ export default defineConfig({
   },
   permissions: [],
   outdir: 'out',
-  // 게임센터 설정 (토스 콘솔에서 먼저 게임센터를 활성화해야 함)
   gameCenter: {
-    enabled: true // 토스 콘솔에서 게임센터 설정 후 true로 변경
+    enabled: true,
   },
-});
+};
+
+export default defineConfig(config);
