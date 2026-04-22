@@ -1,101 +1,48 @@
 # SnapShoot
 
-### Just Swipe Up to SnapSh⚽️⚽️t!
+Arcade penalty-style football game by **Grab Gaming**. Swipe to shoot, beat the keeper, dodge obstacles, and chase a high score.
 
-<img src="./docs/screenshot_shark.png" width="360" />
+## Gameplay
 
-<a href="https://inticoy.github.io/snapshoot" target="_blank">
-  <img
-    src="https://img.shields.io/badge/PLAY%20IN%20BROWSER-111827?style=for-the-badge&logo=googlechrome&logoColor=white"
-    alt="Play SnapShoot in Browser"
-  />
-</a>
+- One-touch rounds: swipe up (and aim) to strike the ball toward the goal.
+- Difficulty ramps as you score—keeper reactions, obstacles, and shot feedback get tighter.
+- Runs in the browser with 3D visuals on the pitch; optimized for mobile and for distribution inside the Toss ecosystem.
 
-## About The Game
+## Tech stack
 
-SnapShoot is a fast arcade football (soccer) game where you flick the ball upward to shoot and score.
-You get one-touch sessions that are easy to start but hard to master.
+| Layer | Choice |
+|--------|--------|
+| App & UI | Next.js, React, TypeScript, Tailwind CSS |
+| 3D & physics | Three.js, Matter.js / Cannon-es |
+| Platform | Apps in Toss web framework (`granite`) |
 
-- **Goal**: Keep scoring as long as possible without missing.
-- **Controls**: Swipe up to shoot, adjust angle and speed with your finger movement.
-- **Challenge**: As your score increases, gameplay gets harder with tougher keeper behavior and obstacle patterns.
-- **Progression**: Unlock cosmetic themes and chase higher scores on the leaderboard.
+## Prerequisites
 
-## Tech Stack
-
-- **Frontend Framework**: Next.js
-- **Language**: TypeScript
-- **Styling**: CSS + Tailwind CSS
-- **Integration**: Toss Game Center SDK, Toss AdMob
-- **Deployment**: GitHub Pages
-
-## Features
-
-- 🎮 **Toss Game Center Integration**
-  - Real-time leaderboard synchronization
-  - Automatic score submission to Toss ranking
-  - Game Center leaderboard viewer
-
-- 📱 **Ad Integration**
-  - Rewarded ads for continue gameplay
-  - Seamless ad experience with Toss AdMob
+- [pnpm](https://pnpm.io/) (see `packageManager` in `package.json` for the expected version)
 
 ## Setup
 
-### Environment Variables
-
-Create a `.env` file in the root directory (copy from `.env.example`):
-
 ```bash
+pnpm install
 cp .env.example .env
 ```
 
-Then configure the following variables:
+Edit `.env` as needed (e.g. Toss ad IDs and `NEXT_PUBLIC_ENVIRONMENT` for `development` vs `production`). Details are commented in `.env.example`.
 
-- `NEXT_PUBLIC_INTERSTITIAL_AD_ID`: Your Toss Interstitial Ad Group ID from [Toss Apps Console](https://developers-apps-in-toss.toss.im/)
-- `NEXT_PUBLIC_ENVIRONMENT`: Environment setting (`development` or `production`)
-
-## Development
+## Scripts
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Start development server
-pnpm dev
-
-# Build for production
-pnpm build
+pnpm dev      # local dev (Granite)
+pnpm build    # production build
+pnpm start    # run production server after build (next start)
 ```
 
-## Toss Game Features
+## Repository layout (high level)
 
-### Environment Detection
-The game automatically detects whether it's running in:
-- **Toss App**: Full feature access (leaderboard, ads, score sync)
-- **Web Browser** (inticoy.github.io): Standard gameplay with localStorage
+- `app/` — Next.js routes, UI shells, modals, loading screen
+- `src/` — Game core: rendering, physics, shooting, difficulty, Toss hooks
+- `public/assets/` — Models, textures, audio
 
-### 1. Leaderboard (Toss App Only)
-- View global rankings from the Game Over modal
-- Scores are automatically submitted to Toss Game Center when you score
-- Web browser users will see an alert explaining this is a Toss App-only feature
+---
 
-### 2. Continue with Ads (Toss App Only)
-- Watch rewarded ads to continue playing after a miss
-- Get a second chance to improve your score
-- Web browser users can continue without watching ads
-
-### 3. Score Submission
-- **Toss App**: Scores automatically sync with Toss Game Center
-- **Web Browser**: Scores saved locally via localStorage
-
-### Feature Availability Matrix
-
-| Feature | Toss App | Web Browser |
-|---------|----------|-------------|
-| Play Game | ✅ | ✅ |
-| Local Best Score | ✅ | ✅ |
-| Toss Leaderboard | ✅ | ❌ |
-| Score Sync to Toss | ✅ | ❌ |
-| Rewarded Ads | ✅ | ❌ (auto-continue) |
-
+© Grab Gaming — SnapShoot
