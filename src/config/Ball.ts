@@ -58,7 +58,7 @@ const BALL_HOVER_EPSILON = 0.01;
 
 
 export const BALL_PHYSICS: BallPhysicsConfig = {
-  radius: 0.15,
+  radius: 0.09,
   mass: 1.2,
   linearDamping: PHYSICS_LINEAR_DAMPING,
   angularDamping: 0.9,

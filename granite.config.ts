@@ -5,9 +5,9 @@ type GraniteGameCenter = { gameCenter?: { enabled: boolean } };
 
 const config: AppsInTossWebConfig & GraniteGameCenter = {
   webViewProps: { type: 'game' },
-  appName: 'snapshoot',
+  appName: 'garb-football',
   brand: {
-    displayName: 'SnapShoot',
+    displayName: 'Garb Football',
     primaryColor: '#35CD21',
     icon: 'https://raw.githubusercontent.com/zxing-tech/gaming-service-web/main/public/icon.svg',
   },

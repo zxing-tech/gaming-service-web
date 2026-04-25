@@ -5,8 +5,8 @@ import { getAssetPath } from '@/../src/utils/assetPath';
 const iconPath = getAssetPath('/icon.svg');
 
 export const metadata: Metadata = {
-  title: 'SnapShoot',
-  description: 'Swipe up to SnapShoot!',
+  title: 'Garb Football',
+  description: 'Garb Football',
   icons: {
     icon: iconPath,
     apple: iconPath,

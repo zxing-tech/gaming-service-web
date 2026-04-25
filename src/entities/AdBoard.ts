@@ -201,11 +201,18 @@ export class AdBoard {
 
     const cached = this.adImageCache.get(imageUrl);
     if (cached) {
-      const targetH = canvas.height * 0.78;
-      const scale = targetH / Math.max(cached.height, 1);
+      const maxW = canvas.width * 0.98;
+      const maxH = canvas.height * 0.98;
+      const scale = Math.min(
+        maxW / Math.max(cached.width, 1),
+        maxH / Math.max(cached.height, 1)
+      );
       const targetW = cached.width * scale;
+      const targetH = cached.height * scale;
       const x = (canvas.width - targetW) * 0.5;
       const y = (canvas.height - targetH) * 0.5;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(cached, x, y, targetW, targetH);
       return canvas;
     }
