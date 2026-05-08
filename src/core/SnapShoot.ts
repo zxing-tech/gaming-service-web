@@ -122,6 +122,9 @@ export class SnapShoot {
   private readonly handleGoalCollisionBound = (event: { body: CANNON.Body }) => this.handleGoalCollision(event);
   private touchGuideTimer: number | null = null;
   private idleTimer: number | null = null;
+  private tierTimer: number | null = null;
+  private tierTimerInterval: number | null = null;
+  private tierTimerDeadlineMs = 0;
   private livesRemaining: number = GAME_CONFIG.session.totalLives;
   private activeTierConfig: TierDifficultyConfig = getTierConfig(DEFAULT_TIER_ID);
   private activePrizeTierConfig: PrizeTierConfig = resolvePrizeTierConfig(DEFAULT_TIER_ID);
@@ -271,13 +274,6 @@ export class SnapShoot {
       this.field.adBoard.switchAdSet('goal');
     }
     this.field.adBoard.startBlinking();
-
-    if (this.score >= this.activePrizeTierConfig.topPrizePoints) {
-      this.gameLog.info(
-        `🏆 Top prize reached: score=${this.score}, tier=${this.activePrizeTierConfig.tierName}, threshold=${this.activePrizeTierConfig.topPrizePoints}`
-      );
-      // Keep session running after top-prize threshold so players can continue scoring.
-    }
 
     this.inputController.clearSwipeTrailDisplay();
   }
@@ -521,6 +517,7 @@ export class SnapShoot {
     if (this.idleTimer !== null) {
       clearTimeout(this.idleTimer);
     }
+    this.clearTierTimer();
     window.removeEventListener('resize', this.handleResizeBound);
     this.inputController.destroy();
     this.goal.bodies.sensor.removeEventListener('collide', this.handleGoalCollisionBound);
@@ -558,9 +555,9 @@ export class SnapShoot {
   /** Auto tier ramp by current run score. */
   private resolveTierByScore(score: number): TierId {
     // Requested ranges:
-    // Easy: 0-5, Intermediate: 6-10, Hard: 11+
-    if (score >= 11) return 3;
-    if (score >= 6) return 2;
+    // Easy: 0-10, Intermediate: 11-19, Hard: 20+
+    if (score >= 20) return 3;
+    if (score >= 11) return 2;
     return 1;
   }
 
@@ -575,6 +572,7 @@ export class SnapShoot {
     this.activeTierConfig = getTierConfig(tierId);
     this.activePrizeTierConfig = resolvePrizeTierConfig(tierId);
     this.difficultyManager.setTier(tierId);
+    this.resetTierTimer();
     gameEventBus.emit({
       type: 'TIER_CHANGED',
       tierId: this.activeTierConfig.tierId,
@@ -685,6 +683,8 @@ export class SnapShoot {
     this.isShotInProgress = true;
     this.keeperCatchHandledForCurrentShot = false;
     this.hasScored = false;
+    // Hide swipe ribbon as soon as shot is committed.
+    this.inputController.clearSwipeTrailDisplay();
 
 
     this.characterActors.triggerKick();
@@ -846,6 +846,7 @@ export class SnapShoot {
    */
   public restartGame(): void {
     console.log('🔄 Restart game');
+    this.resetTierTimer();
 
     if (this.shotResetTimer !== null) {
       clearTimeout(this.shotResetTimer);
@@ -884,6 +885,7 @@ export class SnapShoot {
    */
   public gameOver(): void {
     console.log('💀 Game over');
+    this.clearTierTimer();
 
 
     const finalScore = this.score;
@@ -893,6 +895,7 @@ export class SnapShoot {
       score: finalScore,
       tierId: prizeAward.tierId,
       tierName: prizeAward.tierName,
+      prizePoolLabel: prizeAward.prizePoolLabel,
       topPrizeReached: prizeAward.topPrizeReached,
       topPrizePoints: prizeAward.topPrizePoints,
       topPrizeCode: prizeAward.topPrizeCode,
@@ -900,7 +903,14 @@ export class SnapShoot {
     });
 
 
-    gameEventBus.emit({ type: 'SHOW_GAME_OVER_MODAL', score: finalScore });
+    const tokenId = `${prizeAward.topPrizeCode}-${Date.now().toString(36).toUpperCase()}`;
+    gameEventBus.emit({
+      type: 'SHOW_GAME_OVER_MODAL',
+      score: finalScore,
+      points: finalScore,
+      tokenId,
+      redeemedReward: prizeAward.topPrizeLabel
+    });
 
     this.score = 0;
     this.applyAutoTierByScore(this.score);
@@ -1000,6 +1010,49 @@ export class SnapShoot {
       this.gameLog.info('⏱️ Session ended due to inactivity');
       this.gameOver();
     }, this.activeTierConfig.idleTimeoutMs);
+  }
+
+  private clearTierTimer(): void {
+    if (this.tierTimer !== null) {
+      clearTimeout(this.tierTimer);
+      this.tierTimer = null;
+    }
+    if (this.tierTimerInterval !== null) {
+      clearInterval(this.tierTimerInterval);
+      this.tierTimerInterval = null;
+    }
+    this.tierTimerDeadlineMs = 0;
+  }
+
+  private resetTierTimer(): void {
+    this.clearTierTimer();
+    const totalMs = this.activeTierConfig.tierDurationMs;
+    this.tierTimerDeadlineMs = performance.now() + totalMs;
+    this.emitTierTimerUpdated(totalMs, totalMs);
+    this.tierTimerInterval = window.setInterval(() => {
+      if (this.tierTimerDeadlineMs <= 0) return;
+      const remainingMs = Math.max(0, Math.ceil(this.tierTimerDeadlineMs - performance.now()));
+      this.emitTierTimerUpdated(remainingMs, totalMs);
+      if (remainingMs <= 0 && this.tierTimerInterval !== null) {
+        clearInterval(this.tierTimerInterval);
+        this.tierTimerInterval = null;
+      }
+    }, 250);
+    this.tierTimer = window.setTimeout(() => {
+      this.gameLog.info(
+        `⏱️ ${this.activeTierConfig.tierName} timer completed (1 minute). Ending current run.`
+      );
+      this.gameOver();
+    }, totalMs);
+  }
+
+  private emitTierTimerUpdated(remainingMs: number, totalMs: number): void {
+    gameEventBus.emit({
+      type: 'TIER_TIMER_UPDATED',
+      tierId: this.activeTierConfig.tierId,
+      remainingMs,
+      totalMs
+    });
   }
 
 }

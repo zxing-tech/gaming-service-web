@@ -13,6 +13,7 @@ export interface TierDifficultyConfig {
   additionalObstacleCount: number;
   shotResetMs: number;
   idleTimeoutMs: number;
+  tierDurationMs: number;
   /**
    * Added to `SHOT_TARGET_CONFIG.horizontalMargin` (more negative = smaller aim area).
    * Does not change keeper or obstacle physics.
@@ -47,6 +48,7 @@ export const TIER_DIFFICULTY_CONFIGS: Record<TierId, TierDifficultyConfig> = {
     additionalObstacleCount: 0,
     shotResetMs: 2600,
     idleTimeoutMs: 75_000,
+    tierDurationMs: 60_000,
     aimHorizontalMarginExtra: -0.06,
     aimVerticalMarginTopExtra: -0.05,
     aimVerticalMarginBottomExtra: -0.12,
@@ -56,13 +58,14 @@ export const TIER_DIFFICULTY_CONFIGS: Record<TierId, TierDifficultyConfig> = {
     tierId: 2,
     tierName: 'Tier 2',
     difficultyName: 'Intermediate',
-    unlockBestScore: 8,
+    unlockBestScore: 11,
     difficultyAnchorScore: 7,
     keeperPatrolSpeed: 1.6,
     keeperPatrolRange: [-K * 0.92, K * 0.92],
     additionalObstacleCount: 0,
     shotResetMs: 2500,
     idleTimeoutMs: 60_000,
+    tierDurationMs: 60_000,
     aimHorizontalMarginExtra: -0.18,
     aimVerticalMarginTopExtra: -0.14,
     aimVerticalMarginBottomExtra: -0.28,
@@ -72,13 +75,14 @@ export const TIER_DIFFICULTY_CONFIGS: Record<TierId, TierDifficultyConfig> = {
     tierId: 3,
     tierName: 'Tier 3',
     difficultyName: 'Hard',
-    unlockBestScore: 18,
+    unlockBestScore: 20,
     difficultyAnchorScore: 10,
     keeperPatrolSpeed: 2.05,
     keeperPatrolRange: [-K, K],
     additionalObstacleCount: 0,
     shotResetMs: 2100,
     idleTimeoutMs: 50_000,
+    tierDurationMs: 60_000,
     aimHorizontalMarginExtra: -0.32,
     aimVerticalMarginTopExtra: -0.24,
     aimVerticalMarginBottomExtra: -0.45,

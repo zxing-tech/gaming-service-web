@@ -6,6 +6,7 @@ import { useGameEvent } from '@/hooks/useGameEvent';
 export function ScoreDisplay() {
   const [displayScore, setDisplayScore] = useState(0);
   const [lives, setLives] = useState({ remaining: 2, total: 2 });
+  const [tierTimer, setTierTimer] = useState({ remainingMs: 60_000, totalMs: 60_000, tierId: 1 as 1 | 2 | 3 });
   const animationFrameRef = useRef<number | null>(null);
 
   useGameEvent('SCORE_CHANGED', (event) => {
@@ -14,6 +15,14 @@ export function ScoreDisplay() {
 
   useGameEvent('LIVES_CHANGED', (event) => {
     setLives({ remaining: event.livesRemaining, total: event.totalLives });
+  });
+
+  useGameEvent('TIER_TIMER_UPDATED', (event) => {
+    setTierTimer({
+      remainingMs: event.remainingMs,
+      totalMs: event.totalMs,
+      tierId: event.tierId
+    });
   });
 
   const animateScore = (from: number, to: number) => {
@@ -72,6 +81,21 @@ export function ScoreDisplay() {
         ))}
       </div>
 
+      <div
+        className="pointer-events-none absolute z-[7] inline-flex items-center gap-2 rounded-[14px] border border-white/15 bg-[#00000096] px-2.5 py-1 shadow-[0_6px_18px_rgba(0,0,0,0.45)]"
+        style={{
+          top: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+          right: 'calc(env(safe-area-inset-right, 0px) + 10px)'
+        }}
+      >
+        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/70">
+          T{tierTimer.tierId}
+        </span>
+        <span className="font-mono text-[16px] font-extrabold leading-none tabular-nums text-white">
+          {formatMsToClock(tierTimer.remainingMs)}
+        </span>
+      </div>
+
       {/* Sponsor strip + score — width capped so it never spills past rounded displays */}
       <div
         className="pointer-events-none absolute left-1/2 z-[6] flex w-[min(280px,calc(100vw-16px))] max-w-[92vw] -translate-x-1/2 flex-col items-center px-1"
@@ -108,4 +132,11 @@ export function ScoreDisplay() {
       </div>
     </>
   );
+}
+
+function formatMsToClock(ms: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }

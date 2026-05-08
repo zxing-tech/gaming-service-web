@@ -26,10 +26,16 @@ export function getRandomShareMessage(score: number): string {
 export function GameOverModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [score, setScore] = useState(0);
+  const [points, setPoints] = useState(0);
+  const [tokenId, setTokenId] = useState('-');
+  const [redeemedReward, setRedeemedReward] = useState('Not Redeemed');
 
   useGameEvent('SHOW_GAME_OVER_MODAL', (event) => {
     setIsOpen(true);
     setScore(event.score);
+    setPoints(event.points ?? event.score);
+    setTokenId(event.tokenId ?? '-');
+    setRedeemedReward(event.redeemedReward ?? 'Not Redeemed');
   });
 
   const handleRestart = () => {
@@ -128,18 +134,32 @@ export function GameOverModal() {
         title="GAME OVER"
       />
       
-      <ModalContent centered={false}>
+      <ModalContent centered={false} className="px-5 sm:px-6">
           <>
             {/* Score Display */}
-            <div className="flex flex-col items-center gap-2 py-8 animate-fade-in">
-              <div className="text-white/70 font-semibold text-sm uppercase tracking-wider">Final Score</div>
-              <div className="text-white font-russo font-black tracking-tight drop-shadow-lg text-[clamp(48px,10vw,72px)]">
+            <div className="flex flex-col items-center gap-1 py-5 animate-fade-in">
+              <div className="text-white/70 font-semibold text-[11px] uppercase tracking-[0.22em]">Final Score</div>
+              <div className="text-white font-russo font-black tracking-tight drop-shadow-lg text-[clamp(52px,11vw,74px)] leading-none">
                 {score.toLocaleString()}
               </div>
             </div>
 
+            <div className="w-full max-w-xl rounded-2xl border border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0.06)_100%)] px-4 py-3.5 text-white/95 shadow-[0_10px_26px_rgba(0,0,0,0.35)] backdrop-blur-md">
+              <div className="mb-3 text-[13px] font-extrabold uppercase tracking-[0.1em] text-white">Reward Summary</div>
+              <div className="rounded-xl border border-white/15 bg-black/25 px-3 py-2.5">
+                <div className="grid grid-cols-[98px_1fr] items-center gap-x-3 gap-y-2 text-[15px] leading-tight sm:grid-cols-[118px_1fr]">
+                  <div className="text-white/65 text-[13px] font-semibold">Token ID</div>
+                  <div className="font-mono text-[12px] sm:text-[13px] break-all">{tokenId}</div>
+                  <div className="text-white/65 text-[13px] font-semibold">Points</div>
+                  <div className="font-extrabold text-[20px]">{points.toLocaleString()}</div>
+                  <div className="text-white/65 text-[13px] font-semibold">Redeemed Reward</div>
+                  <div className="font-semibold text-[14px] sm:text-[15px]">{redeemedReward}</div>
+                </div>
+              </div>
+            </div>
+
             {/* Top Buttons */}
-            <div className="flex gap-6 w-full max-w-lg justify-center">
+            <div className="mt-4 flex gap-5 w-full max-w-lg justify-center">
               <StyledIconButton 
                 Icon={Ranking} 
                 label="Ranking" 

@@ -33,6 +33,7 @@ export type GameEvent =
     score: number;
     tierId: 1 | 2 | 3;
     tierName: string;
+    prizePoolLabel?: string;
     topPrizeReached: boolean;
     topPrizePoints: number;
     topPrizeCode: string;
@@ -56,6 +57,12 @@ export type GameEvent =
 
   | { type: 'SHOT_INFO_UPDATED'; data: ShotInfo }
   | { type: 'TIER_CHANGED'; tierId: 1 | 2 | 3; difficultyName: 'Easy' | 'Intermediate' | 'Hard' }
+  | {
+    type: 'TIER_TIMER_UPDATED';
+    tierId: 1 | 2 | 3;
+    remainingMs: number;
+    totalMs: number;
+  }
   | { type: 'DEBUG_MODE_CHANGED'; enabled: boolean }
 
 

@@ -16,7 +16,7 @@ export interface SwipeData {
 /**
 
  */
-const SWIPE_LINE_POST_RELEASE_MS = 350;
+const SWIPE_LINE_POST_RELEASE_MS = 1200;
 
 /** Ignore duplicate samples only when the finger barely moved (sub-pixel). */
 const MIN_MOVE_DIST_SQ = 0.36; // 0.6px — keeps dense paths on fast swipes; drops noise
