@@ -8,6 +8,14 @@ export const COLORS = {
   /**
 
    */
+  game: {
+
+    swipeTrail: 0xffffff,
+  },
+
+  /**
+
+   */
   debug: {
 
     trajectory: 0x00aaff,

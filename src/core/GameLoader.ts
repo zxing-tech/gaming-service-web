@@ -86,10 +86,8 @@ export function loadGame(params?: { score?: number }) {
     () => {}
   );
 
-  const selectedTier = gameStateService.getSelectedTier();
-  const appliedTier = gameStateService.setSelectedTier(selectedTier);
-  game.applyTierDifficulty(appliedTier);
-  console.log(`🎚️ Session tier applied: ${appliedTier}`);
+  game.applyTierDifficulty(1);
+  console.log('🎚️ Session tier initialized: Easy (auto progression enabled)');
 
   // Mute all game audio for now.
   gameStateService.setMusicEnabled(false);

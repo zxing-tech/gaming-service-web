@@ -3,24 +3,8 @@ import type { SoundKey } from './Audio';
 import { getAssetPath } from '../utils/assetPath';
 
 const basicBallModel = getAssetPath('/assets/ball/basic.glb');
-const moonBallModel = getAssetPath('/assets/ball/moon.glb');
-const basketBallModel = getAssetPath('/assets/ball/basketball.glb');
-const volleyBallModel = getAssetPath('/assets/ball/volleyball.glb');
-const earthBallModel = getAssetPath('/assets/ball/earth.glb');
-const worldCup2010BallModel = getAssetPath('/assets/ball/worldcup2010.glb');
-const beachBallModel = getAssetPath('/assets/ball/beachball.glb');
-const monsterBallModel = getAssetPath('/assets/ball/monsterball.glb');
-const sunBallModel = getAssetPath('/assets/ball/sun.glb');
 
 const basicBallImage = getAssetPath('/assets/ball/basic.png');
-const moonBallImage = getAssetPath('/assets/ball/moon.png');
-const basketballBallImage = getAssetPath('/assets/ball/basketball.png');
-const volleyballBallImage = getAssetPath('/assets/ball/volleyball.png');
-const earthBallImage = getAssetPath('/assets/ball/earth.png');
-const worldcup2010BallImage = getAssetPath('/assets/ball/worldcup2010.png');
-const beachballImage = getAssetPath('/assets/ball/beachball.png');
-const monsterballImage = getAssetPath('/assets/ball/monsterball.png');
-const sunBallImage = getAssetPath('/assets/ball/sun.png');
 
 
 export interface BallPhysicsConfig {
@@ -36,6 +20,7 @@ export interface BallPhysicsConfig {
 export interface BallTheme {
   name: string;
   modelUrl: string;
+  sourceFormat?: 'gltf' | 'fbx';
   imageUrl: string;
   gltfScale: number;
   unlockScore: number;
@@ -74,76 +59,10 @@ export const BALL_THEMES = {
   BASIC: {
     name: 'basic',
     modelUrl: basicBallModel,
+    sourceFormat: 'gltf',
     imageUrl: basicBallImage,
     gltfScale: 1.3,
     unlockScore: 0
-  } as BallTheme,
-  MOON: {
-    name: 'moon',
-    modelUrl: moonBallModel,
-    imageUrl: moonBallImage,
-    gltfScale: 0.0048,
-    unlockScore: 60,
-	material: {
-	  roughness: 0.,
-	  metalness: 0.3,
-	},
-	sounds: {
-    bounce: 'post'
-  }
-  } as BallTheme,
-  BASKETBALL : {
-	name: 'basketball',
-	modelUrl: basketBallModel,
-	imageUrl: basketballBallImage,
-	gltfScale: 0.15,
-	unlockScore: 15
-  } as BallTheme,
-  VOLLEYBALL : {
-	name: 'volleyball',
-	modelUrl: volleyBallModel,
-	imageUrl: volleyballBallImage,
-	gltfScale: 1.3,
-	unlockScore: 30
-  } as BallTheme,
-  EARTH : {
-	name: 'earth',
-	modelUrl: earthBallModel,
-	imageUrl: earthBallImage,
-	gltfScale: 0.125,
-	unlockScore: 75,
-	material: {
-	  roughness: 0.,
-	  metalness: 0.3,
-	}
-  } as BallTheme,
-  WORLDCUP2010 : {
-	name: 'worldcup2010',
-	modelUrl: worldCup2010BallModel,
-	imageUrl: worldcup2010BallImage,
-	gltfScale: 0.4,
-	unlockScore: 120
-  } as BallTheme,
-  BEACHBALL : {
-	name: 'beachball',
-	modelUrl: beachBallModel,
-	imageUrl: beachballImage,
-	gltfScale: 0.14,
-	unlockScore: 90
-  } as BallTheme,
-  MONSTERBALL : {
-	name: 'monsterball',
-	modelUrl: monsterBallModel,
-	imageUrl: monsterballImage,
-	gltfScale: 0.04,
-	unlockScore: 105
-  } as BallTheme,
-  SUN : {
-	name: 'sun',
-	modelUrl: sunBallModel,
-	imageUrl: sunBallImage,
-	gltfScale: 0.015,
-	unlockScore: 45
   } as BallTheme,
 } as const;
 

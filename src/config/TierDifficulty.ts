@@ -5,7 +5,7 @@ export type TierId = 1 | 2 | 3;
 export interface TierDifficultyConfig {
   tierId: TierId;
   tierName: string;
-  difficultyName: 'Easy' | 'Medium' | 'Hard';
+  difficultyName: 'Easy' | 'Intermediate' | 'Hard';
   unlockBestScore: number;
   difficultyAnchorScore: number;
   keeperPatrolSpeed: number;
@@ -13,6 +13,21 @@ export interface TierDifficultyConfig {
   additionalObstacleCount: number;
   shotResetMs: number;
   idleTimeoutMs: number;
+  /**
+   * Added to `SHOT_TARGET_CONFIG.horizontalMargin` (more negative = smaller aim area).
+   * Does not change keeper or obstacle physics.
+   */
+  aimHorizontalMarginExtra: number;
+  /** Added to `SHOT_TARGET_CONFIG.verticalMarginTop` (more negative = lower ceiling). */
+  aimVerticalMarginTopExtra: number;
+  /**
+   * Added to `SHOT_TARGET_CONFIG.verticalMarginBottom` (more negative = less room below the bar).
+   */
+  aimVerticalMarginBottomExtra: number;
+  /**
+   * Multiplier on (maxTime − minTime) for ballistic flight timing; lower = pickier power-to-speed mapping.
+   */
+  ballisticTimeWindowScale: number;
 }
 
 export const DEFAULT_TIER_ID: TierId = 1;
@@ -26,23 +41,32 @@ export const TIER_DIFFICULTY_CONFIGS: Record<TierId, TierDifficultyConfig> = {
     difficultyName: 'Easy',
     unlockBestScore: 0,
     difficultyAnchorScore: 1,
-    keeperPatrolSpeed: 0.95,
-    keeperPatrolRange: [-K * 0.72, K * 0.72],
+    // Easy: slightly tougher than before.
+    keeperPatrolSpeed: 1.2,
+    keeperPatrolRange: [-K * 0.84, K * 0.84],
     additionalObstacleCount: 0,
-    shotResetMs: 3000,
+    shotResetMs: 2600,
     idleTimeoutMs: 75_000,
+    aimHorizontalMarginExtra: -0.06,
+    aimVerticalMarginTopExtra: -0.05,
+    aimVerticalMarginBottomExtra: -0.12,
+    ballisticTimeWindowScale: 0.9,
   },
   2: {
     tierId: 2,
     tierName: 'Tier 2',
-    difficultyName: 'Medium',
+    difficultyName: 'Intermediate',
     unlockBestScore: 8,
     difficultyAnchorScore: 7,
-    keeperPatrolSpeed: 1.55,
-    keeperPatrolRange: [-K * 0.88, K * 0.88],
-    additionalObstacleCount: 1,
+    keeperPatrolSpeed: 1.6,
+    keeperPatrolRange: [-K * 0.92, K * 0.92],
+    additionalObstacleCount: 0,
     shotResetMs: 2500,
     idleTimeoutMs: 60_000,
+    aimHorizontalMarginExtra: -0.18,
+    aimVerticalMarginTopExtra: -0.14,
+    aimVerticalMarginBottomExtra: -0.28,
+    ballisticTimeWindowScale: 0.74,
   },
   3: {
     tierId: 3,
@@ -50,11 +74,15 @@ export const TIER_DIFFICULTY_CONFIGS: Record<TierId, TierDifficultyConfig> = {
     difficultyName: 'Hard',
     unlockBestScore: 18,
     difficultyAnchorScore: 10,
-    keeperPatrolSpeed: 1.95,
+    keeperPatrolSpeed: 2.05,
     keeperPatrolRange: [-K, K],
-    additionalObstacleCount: 2,
+    additionalObstacleCount: 0,
     shotResetMs: 2100,
     idleTimeoutMs: 50_000,
+    aimHorizontalMarginExtra: -0.32,
+    aimVerticalMarginTopExtra: -0.24,
+    aimVerticalMarginBottomExtra: -0.45,
+    ballisticTimeWindowScale: 0.62,
   },
 };
 

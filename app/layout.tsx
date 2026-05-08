@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { getAssetPath } from '@/../src/utils/assetPath';
 
@@ -11,12 +11,29 @@ export const metadata: Metadata = {
     icon: iconPath,
     apple: iconPath,
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Garb Football',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+/** Full-screen safe-area correct framing on phones / notches (viewport-fit=cover). */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#0b1220',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

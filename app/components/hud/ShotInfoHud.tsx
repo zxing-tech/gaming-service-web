@@ -34,7 +34,12 @@ export function ShotInfoHud() {
   };
 
   return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 px-4 py-2.5 bg-black/70 border border-blue-400/40 rounded-lg font-mono text-xs text-blue-100 z-[5] backdrop-blur max-w-[95vw] shadow-lg">
+    <div
+      className="fixed left-1/2 z-[5] max-w-[min(95vw,520px)] -translate-x-1/2 rounded-lg border border-blue-400/40 bg-black/70 px-3 py-2 font-mono text-[11px] text-blue-100 shadow-lg backdrop-blur max-[380px]:px-2 max-[380px]:text-[10px] sm:px-4 sm:py-2.5 sm:text-xs"
+      style={{
+        bottom: 'max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))'
+      }}
+    >
       <div className="flex justify-center flex-wrap gap-x-3 gap-y-1.5 mb-1.5">
         <span className="whitespace-nowrap">
           <span className="text-sky-400 font-bold">TYPE: </span>

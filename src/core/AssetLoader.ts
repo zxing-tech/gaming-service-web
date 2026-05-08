@@ -9,6 +9,14 @@ import { OBSTACLE_BLUEPRINTS } from '../config/Obstacles';
 import { PLAYERS_CONFIG } from '../config/Players';
 import { getAssetPath } from '../utils/assetPath';
 
+/** GLB obstacles — load on first spawn instead of blocking initial load. */
+const DEFERRED_OBSTACLE_MODEL_IDS = new Set([
+  'drum',
+  'shark',
+  'van',
+  'cokeBottle'
+]);
+
 const grassColorUrl = getAssetPath('/assets/grass/Grass005_1K-JPG_Color.jpeg');
 const crowdTextureUrl = getAssetPath('/assets/crowd/Gemini_Generated_Image_a8cqxoa8cqxoa8cq.png');
 
@@ -40,17 +48,17 @@ export class AssetLoader {
     const gltfLoader = new GLTFLoader(THREE.DefaultLoadingManager);
     const fbxLoader = new FBXLoader(THREE.DefaultLoadingManager);
     const textureLoader = new THREE.TextureLoader(THREE.DefaultLoadingManager);
-    const imageLoader = new THREE.ImageLoader(THREE.DefaultLoadingManager);
 
 
     const ballThemes = Object.values(BALL_THEMES);
     const obstacleBlueprints = Object.values(OBSTACLE_BLUEPRINTS);
 
     const ballModelCount = ballThemes.length;
-    const ballImageCount = ballThemes.length;
+    const ballImageCount = 0;
     let obstacleModelAssetCount = 0;
     obstacleBlueprints.forEach((b) => {
       if (b.render.kind !== 'model') return;
+      if (DEFERRED_OBSTACLE_MODEL_IDS.has(b.id)) return;
       const r = b.render;
       obstacleModelAssetCount +=
         r.sourceFormat === 'fbx' ? 1 + (r.extraAnimationUrls?.length ?? 0) : 1;
@@ -61,7 +69,7 @@ export class AssetLoader {
     const kickerAssetCount =
       1 +
       (PLAYERS_CONFIG.kicker.idleAssetUrl ? 1 : 0);
-    const playerModelCount = kickerAssetCount + 1;
+    const playerModelCount = kickerAssetCount;
     const environmentTextureCount = 2;
 
     const totalAssets =
@@ -87,9 +95,10 @@ export class AssetLoader {
 
 
     ballThemes.forEach((theme) => {
-
+      const ballModelLoader = theme.sourceFormat === 'fbx' ? fbxLoader : gltfLoader;
+      const modelUrl = theme.sourceFormat === 'fbx' ? encodeURI(theme.modelUrl) : theme.modelUrl;
       loadPromises.push(
-        gltfLoader.loadAsync(theme.modelUrl)
+        ballModelLoader.loadAsync(modelUrl)
           .then(() => updateProgress())
           .catch((error) => {
             this.gameLog.warn(`Failed to preload ball model: ${theme.name}`, error);
@@ -98,20 +107,17 @@ export class AssetLoader {
       );
 
 
-      loadPromises.push(
-        imageLoader.loadAsync(theme.imageUrl)
-          .then(() => updateProgress())
-          .catch((error) => {
-            this.gameLog.warn(`Failed to preload ball image: ${theme.name}`, error);
-            updateProgress();
-          })
-      );
+      // UI thumbnail only — skip to speed first load (single ball mode).
     });
 
 
     obstacleBlueprints.forEach((blueprint) => {
       const render = blueprint.render;
 
+
+      if (render.kind === 'model' && DEFERRED_OBSTACLE_MODEL_IDS.has(blueprint.id)) {
+        return;
+      }
 
       if (render.kind === 'model') {
         const urls =
@@ -168,15 +174,7 @@ export class AssetLoader {
           })
       );
     }
-    loadPromises.push(
-      fbxLoader.loadAsync(encodeURI(PLAYERS_CONFIG.goalkeeper.assetUrl))
-        .then(() => updateProgress())
-        .catch((error) => {
-          this.gameLog.warn(`Failed to preload goalkeeper model`, error);
-          updateProgress();
-        })
-    );
-
+    // Goalkeeper FBX is already loaded via keeperWall blueprint (same files).
 
     loadPromises.push(
       textureLoader.loadAsync(grassColorUrl)

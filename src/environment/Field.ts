@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { GOAL_DEPTH, GOAL_WIDTH } from '../config/Goal';
+import { getGoalConfigForViewport, GOAL_DEPTH } from '../config/Goal';
+import { applyGroundLogoLayout, getGroundLogoLayout } from '../config/GroundLogo';
 import { FIELD_DIMENSIONS, FIELD_OFFSETS, FIELD_STRIPES, FIELD_TEXTURE_REPEAT } from '../config/Field';
 import { AD_BOARD_CONFIG } from '../config/AdBoard';
 import { AdBoard } from '../entities/AdBoard';
@@ -8,6 +9,7 @@ import { Stands } from './Stands';
 import { getAssetPath } from '../utils/assetPath';
 
 const grassColorUrl = getAssetPath('/assets/grass/Grass005_1K-JPG_Color.jpeg');
+const groundLogoUrl = getAssetPath('/assets/ads/image-white.png');
 
 export interface FieldOptions {
   goalDepth?: number;
@@ -24,6 +26,7 @@ export class Field {
   public readonly stands: Stands;
 
   private readonly goalDepth: number;
+  private readonly groundLogoMeshes: THREE.Mesh[] = [];
 
   constructor(scene: THREE.Scene, world: CANNON.World, groundMaterial: CANNON.Material, options: FieldOptions = {}) {
     this.goalDepth = options.goalDepth ?? GOAL_DEPTH;
@@ -52,6 +55,7 @@ export class Field {
     this.groundMesh.rotation.x = -Math.PI / 2;
     this.groundMesh.receiveShadow = true;
     scene.add(this.groundMesh);
+    this.createGroundLogo(scene);
 
     const stripeWidth = options.stripeWidth ?? FIELD_DIMENSIONS.defaultStripeWidth;
     this.stripeMeshes = this.createStripes(scene, stripeWidth);
@@ -81,6 +85,60 @@ export class Field {
 
   update(deltaTime: number) {
     this.adBoard.update(deltaTime);
+  }
+
+  /** Call on window resize so the pitch logo matches the current viewport. */
+  resizeGroundLogoForViewport(): void {
+    if (this.groundLogoMeshes.length === 0) return;
+    applyGroundLogoLayout(this.groundLogoMeshes, getGroundLogoLayout());
+  }
+
+  private createGroundLogo(scene: THREE.Scene): void {
+    const loader = new THREE.TextureLoader();
+    const logoTexture = loader.load(groundLogoUrl);
+    logoTexture.colorSpace = THREE.SRGBColorSpace;
+    logoTexture.wrapS = THREE.ClampToEdgeWrapping;
+    logoTexture.wrapT = THREE.ClampToEdgeWrapping;
+    logoTexture.anisotropy = 8;
+
+    const layout = getGroundLogoLayout();
+    const logoGeometry = new THREE.PlaneGeometry(layout.width, layout.height);
+    const baseLogo = new THREE.Mesh(
+      logoGeometry,
+      new THREE.MeshBasicMaterial({
+        map: logoTexture,
+        transparent: true,
+        opacity: 1,
+        alphaTest: 0.005,
+        depthWrite: false,
+        depthTest: true,
+        blending: THREE.NormalBlending,
+        toneMapped: false
+      })
+    );
+    baseLogo.rotation.x = -Math.PI / 2;
+    baseLogo.position.set(0, 0.016, layout.z);
+    baseLogo.renderOrder = 2;
+    scene.add(baseLogo);
+    this.groundLogoMeshes.push(baseLogo);
+
+    const glowLogo = new THREE.Mesh(
+      logoGeometry.clone(),
+      new THREE.MeshBasicMaterial({
+        map: logoTexture,
+        transparent: true,
+        opacity: 0.3,
+        depthWrite: false,
+        depthTest: true,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false
+      })
+    );
+    glowLogo.rotation.x = -Math.PI / 2;
+    glowLogo.position.set(0, 0.018, layout.z);
+    glowLogo.renderOrder = 3;
+    scene.add(glowLogo);
+    this.groundLogoMeshes.push(glowLogo);
   }
 
   resetAds() {
@@ -194,9 +252,10 @@ export class Field {
     goalLineMesh.position.set(0, lineHeight, this.goalDepth);
     addMesh(goalLineMesh);
 
-    const penaltyBoxWidth = GOAL_WIDTH + FIELD_DIMENSIONS.penaltyBoxWidthPadding;
+    const goalW = getGoalConfigForViewport().width;
+    const penaltyBoxWidth = goalW + FIELD_DIMENSIONS.penaltyBoxWidthPadding;
     const penaltyBoxDepth = FIELD_DIMENSIONS.penaltyBoxDepth;
-    const penaltyAreaWidth = GOAL_WIDTH + FIELD_DIMENSIONS.penaltyAreaWidthPadding;
+    const penaltyAreaWidth = goalW + FIELD_DIMENSIONS.penaltyAreaWidthPadding;
     const penaltyAreaDepth = FIELD_DIMENSIONS.penaltyAreaDepth;
 
     const createSideLine = (width: number, depth: number, offsetX: number, offsetZ: number) => {

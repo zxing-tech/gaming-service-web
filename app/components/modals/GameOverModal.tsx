@@ -3,13 +3,12 @@
 import { useState } from 'react';
 import { useGameEvent } from '@/hooks/useGameEvent';
 import { gameEventBus } from '@/lib/gameEventBus';
-import { CustomizeView } from '@/components/views/CustomizeView';
 import { showToast } from '@/lib/toast';
 import { TOSS_CONFIG } from '@/../src/config/TossConfig';
 import { isTossApp, isTossGameCenterAvailable } from '@/../src/utils/TossEnvironment';
 import { Modal, ModalHeader, ModalContent, ModalFooter } from '@/components/ui/Modal';
 import { StyledIconButton } from '@/components/common/StyledIconButton';
-import { ArrowClockwise, Ranking, Palette, ShareNetwork } from '@phosphor-icons/react';
+import { ArrowClockwise, Ranking, ShareNetwork } from '@phosphor-icons/react';
 
 const SHARE_MESSAGES = [
   'SnapShoot ⚽️ {score} points! Think you can beat me?\n\nTry now 👇',
@@ -27,12 +26,10 @@ export function getRandomShareMessage(score: number): string {
 export function GameOverModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [score, setScore] = useState(0);
-  const [view, setView] = useState<'gameOver' | 'customize'>('gameOver');
 
   useGameEvent('SHOW_GAME_OVER_MODAL', (event) => {
     setIsOpen(true);
     setScore(event.score);
-    setView('gameOver');
   });
 
   const handleRestart = () => {
@@ -128,12 +125,10 @@ export function GameOverModal() {
   return (
     <Modal isOpen={isOpen} closeOnEsc={false} closeOnBackdrop={false}>
       <ModalHeader 
-        title={view === 'gameOver' ? 'GAME OVER' : 'Theme'}
-        onBack={view !== 'gameOver' ? () => setView('gameOver') : undefined}
+        title="GAME OVER"
       />
       
       <ModalContent centered={false}>
-        {view === 'gameOver' && (
           <>
             {/* Score Display */}
             <div className="flex flex-col items-center gap-2 py-8 animate-fade-in">
@@ -152,12 +147,6 @@ export function GameOverModal() {
                 onClick={handleRanking} 
               />
               <StyledIconButton 
-                Icon={Palette} 
-                label="Theme" 
-                variant="theme"
-                onClick={() => setView('customize')} 
-              />
-              <StyledIconButton 
                 Icon={ShareNetwork} 
                 label="Share" 
                 variant="share"
@@ -165,15 +154,9 @@ export function GameOverModal() {
               />
             </div>
           </>
-        )}
-
-        {view === 'customize' && (
-          <CustomizeView />
-        )}
       </ModalContent>
 
-      {view === 'gameOver' && (
-        <ModalFooter>
+      <ModalFooter>
           <button
             onClick={handleRestart}
             className="
@@ -197,7 +180,6 @@ export function GameOverModal() {
             </div>
           </button>
         </ModalFooter>
-      )}
     </Modal>
   );
 }

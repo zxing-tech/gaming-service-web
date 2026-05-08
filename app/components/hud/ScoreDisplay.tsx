@@ -4,34 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useGameEvent } from '@/hooks/useGameEvent';
 
 export function ScoreDisplay() {
-
-  const [bestScore, setBestScore] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
   const [lives, setLives] = useState({ remaining: 2, total: 2 });
   const animationFrameRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('snapshoot.bestScore');
-      if (saved) {
-        setBestScore(parseInt(saved));
-      }
-    }
-  }, []);
-
   useGameEvent('SCORE_CHANGED', (event) => {
     animateScore(displayScore, event.score);
-  });
-
-  useGameEvent('BEST_SCORE_UPDATED', (event) => {
-    setBestScore(event.bestScore);
-    const bestEl = document.getElementById('best-score-number');
-    if (bestEl) {
-      bestEl.classList.add('animate-best-score-pop');
-      setTimeout(() => {
-        bestEl.classList.remove('animate-best-score-pop');
-      }, 800);
-    }
   });
 
   useGameEvent('LIVES_CHANGED', (event) => {
@@ -63,14 +41,6 @@ export function ScoreDisplay() {
     };
 
     animationFrameRef.current = requestAnimationFrame(step);
-
-    const scoreboard = document.getElementById('scoreboard-container');
-    if (scoreboard) {
-      scoreboard.classList.add('animate-scoreboard-pulse');
-      setTimeout(() => {
-        scoreboard.classList.remove('animate-scoreboard-pulse');
-      }, 400);
-    }
   };
 
   useEffect(() => {
@@ -81,37 +51,59 @@ export function ScoreDisplay() {
     };
   }, []);
 
-  const isAppInToss = typeof navigator !== 'undefined' && /TossApp/i.test(navigator.userAgent);
-
   return (
     <>
+      {/* Lives — compact on narrow phones; inset from notch / curved edges */}
       <div
-        className="pointer-events-none absolute top-0 left-3 z-[5] inline-flex items-center gap-2 px-3.5 py-1.5 rounded-[36px] border border-white/10 bg-[#0000009A] shadow-[0_6px_18px_rgba(0,0,0,0.45)] font-montserrat text-base font-semibold text-white landscape-xs:top-0 landscape-xs:px-3 landscape-xs:py-1.5 landscape-xs:text-sm"
-        style={isAppInToss ? {} : {
-          top: 'calc(env(safe-area-inset-top, 0px) + 1rem)',
-          left: 'calc(env(safe-area-inset-left, 0px) + 1rem)'
+        className="pointer-events-none absolute z-[7] inline-flex max-w-[42vw] items-center gap-1.5 rounded-[14px] border border-white/10 bg-[#0000008A] px-2 py-1 shadow-[0_6px_18px_rgba(0,0,0,0.45)] max-[380px]:gap-1 max-[380px]:rounded-[12px] max-[380px]:px-1.5"
+        style={{
+          top: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+          left: 'calc(env(safe-area-inset-left, 0px) + 10px)'
         }}
       >
-        <span className="text-[#FFEE00] drop-shadow-[0_0_6px_rgba(255,238,0,0.45)]">
-          Best:
-        </span>
-        <span
-          id="best-score-number"
-          className="text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.45)]"
-        >
-          {bestScore}
-        </span>
+        {Array.from({ length: lives.total }).map((_, idx) => (
+          <img
+            key={idx}
+            src="/assets/soccer_ball.svg"
+            alt=""
+            role="presentation"
+            className={`h-7 w-7 shrink-0 object-contain max-[380px]:h-6 max-[380px]:w-6 ${idx < lives.remaining ? 'opacity-100' : 'opacity-25 grayscale'}`}
+          />
+        ))}
       </div>
 
+      {/* Sponsor strip + score — width capped so it never spills past rounded displays */}
       <div
-        id="scoreboard-container"
-        className="pointer-events-none absolute top-[12%] left-1/2 -translate-x-1/2 flex flex-col items-center justify-center w-[148px] px-6 py-4 rounded-[24px] border border-white/10 bg-[#00000099] shadow-[0_12px_28px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.08),inset_0_-1px_0_rgba(0,0,0,0.35)] transition-all duration-300 landscape-xs:w-[140px] landscape-xs:px-5 landscape-xs:py-3"
+        className="pointer-events-none absolute left-1/2 z-[6] flex w-[min(280px,calc(100vw-16px))] max-w-[92vw] -translate-x-1/2 flex-col items-center px-1"
+        style={{
+          top: 'calc(env(safe-area-inset-top, 0px) + max(6px, 1vh))'
+        }}
       >
-        <div className="mb-1 font-montserrat text-xs font-bold uppercase tracking-[0.16em] text-white/75 landscape-xs:text-[10px]">
-          Lives {lives.remaining}/{lives.total}
+        <div className="flex h-9 w-[min(170px,min(48vw,170px))] shrink-0 items-center justify-center rounded border border-black/25 bg-[#B90E28] px-2 shadow-[0_8px_18px_rgba(0,0,0,0.4)] landscape-xs:h-7 landscape-xs:max-w-[min(130px,40vw)]">
+          <img
+            src="/assets/ads/image.png"
+            alt=""
+            className="max-h-full w-full object-contain"
+          />
         </div>
-        <div className="font-montserrat text-[72px] font-black tracking-wide leading-none text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.7)] landscape-xs:text-[32px]">
-          {displayScore}
+
+        <div
+          id="scoreboard-container"
+          className="mt-1.5 w-full max-w-[248px] rounded border border-black/20 bg-[#D31738] shadow-[0_16px_30px_rgba(0,0,0,0.45)] landscape-xs:mt-1"
+          style={{
+            maxHeight: 'min(210px, 38svh)'
+          }}
+        >
+          <div className="flex min-h-0 w-full flex-col items-center justify-center gap-1 overflow-hidden px-2 pb-3 pt-2 landscape-xs:gap-0.5 landscape-xs:pb-2 landscape-xs:pt-1.5">
+            <img
+              src="/assets/ads/image-white.png"
+              alt=""
+              className="mb-1 w-[min(90px,26vw)] shrink-0 object-contain opacity-95 landscape-xs:mb-0.5 landscape-xs:w-[min(66px,22vw)]"
+            />
+            <div className="font-montserrat text-[clamp(1.75rem,10.5vw,3.5rem)] font-black leading-none tracking-wide text-white drop-shadow-[0_6px_10px_rgba(0,0,0,0.25)] landscape-xs:text-[clamp(1.5rem,9vw,2.25rem)] tabular-nums">
+              {displayScore}
+            </div>
+          </div>
         </div>
       </div>
     </>

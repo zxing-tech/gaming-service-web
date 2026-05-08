@@ -4,7 +4,6 @@ import { ShotType } from './ShotAnalyzer';
 import type { ShotParameters } from './ShotParameters';
 import { PHYSICS_GRAVITY } from '../physics/Constants';
 import { BALL_START_POSITION } from '../config/Ball';
-import { SHOT_TIMING_CONFIG } from '../config/Shooting';
 
 /**
 
@@ -19,14 +18,11 @@ export function calculateInitialVelocity(shotParams: ShotParameters): CANNON.Vec
     return null;
   }
 
-  const timingConfig = analysis.type === ShotType.CURVE
-    ? SHOT_TIMING_CONFIG.CURVE
-    : SHOT_TIMING_CONFIG.NORMAL;
+  const { minTime, maxTime } = shotParams.ballisticTiming;
 
   const startPos = new THREE.Vector3(BALL_START_POSITION.x, BALL_START_POSITION.y, BALL_START_POSITION.z);
   const ballisticTarget = analysis.type === ShotType.CURVE ? aimTargetPosition : targetPosition;
   const debugLabel = analysis.type === ShotType.CURVE ? 'CURVE (aimed)' : 'NORMAL';
-  const { minTime, maxTime } = timingConfig;
 
   return calculateBallisticVelocity(
     ballisticTarget,

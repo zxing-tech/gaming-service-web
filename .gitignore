@@ -33,3 +33,6 @@ out
 .env.local
 .env.*.local
 .granite
+
+# local large files
+garb-football.ait

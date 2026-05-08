@@ -1,12 +1,10 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { BALL_RADIUS } from '../../config/Ball';
-import { GOAL_DEPTH, GOAL_HEIGHT, GOAL_WIDTH, POST_RADIUS } from '../../config/Goal';
+import { getGoalConfigForViewport } from '../../config/Goal';
 import { GOAL_NET_CONFIG } from '../../config/Net';
 import { GoalNet } from './GoalNet';
 import { GoalNetAnimator } from './GoalNetAnimator';
-
-const CROSSBAR_LENGTH = GOAL_WIDTH;
 
 /**
 
@@ -50,8 +48,18 @@ export class Goal {
   private readonly netColliders: CANNON.Body[] = [];
   private readonly netColliderInfos: Array<{ size: THREE.Vector3; position: THREE.Vector3 }> = [];
   private readonly netImpactPoint = new THREE.Vector3();
+  private readonly goalWidth: number;
+  private readonly goalHeight: number;
+  private readonly goalDepth: number;
+  private readonly postRadius: number;
 
   constructor(scene: THREE.Scene, world: CANNON.World, ballMaterial: CANNON.Material) {
+    const goalConfig = getGoalConfigForViewport();
+    this.goalWidth = goalConfig.width;
+    this.goalHeight = goalConfig.height;
+    this.goalDepth = goalConfig.depth;
+    this.postRadius = goalConfig.postRadius;
+
     const postMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
       roughness: 0.2,
@@ -61,40 +69,40 @@ export class Goal {
       reflectivity: 0.8
     });
 
-    const postWidth = POST_RADIUS * 2;
-    const postGeometry = new THREE.BoxGeometry(postWidth, GOAL_HEIGHT, postWidth);
-    const rearPostXOffset = GOAL_WIDTH / 2;
-    const rearPostZ = GOAL_DEPTH - GOAL_NET_CONFIG.layout.depthBottom;
+    const postWidth = this.postRadius * 2;
+    const postGeometry = new THREE.BoxGeometry(postWidth, this.goalHeight, postWidth);
+    const rearPostXOffset = this.goalWidth / 2;
+    const rearPostZ = this.goalDepth - GOAL_NET_CONFIG.layout.depthBottom;
     const depthSpan = GOAL_NET_CONFIG.layout.depthBottom;
     const floorHeight = postWidth / 2;
     const leftPostMesh = new THREE.Mesh(postGeometry, postMaterial);
-    leftPostMesh.position.set(-GOAL_WIDTH / 2, (GOAL_HEIGHT) / 2, GOAL_DEPTH);
+    leftPostMesh.position.set(-this.goalWidth / 2, this.goalHeight / 2, this.goalDepth);
     leftPostMesh.castShadow = true;
     scene.add(leftPostMesh);
 
     const rightPostMesh = new THREE.Mesh(postGeometry, postMaterial);
-    rightPostMesh.position.set(GOAL_WIDTH / 2, (GOAL_HEIGHT) / 2, GOAL_DEPTH);
+    rightPostMesh.position.set(this.goalWidth / 2, this.goalHeight / 2, this.goalDepth);
     rightPostMesh.castShadow = true;
     scene.add(rightPostMesh);
 
     const rearLeftPostMesh = new THREE.Mesh(postGeometry, postMaterial);
-    rearLeftPostMesh.position.set(-rearPostXOffset, GOAL_HEIGHT / 2, rearPostZ);
+    rearLeftPostMesh.position.set(-rearPostXOffset, this.goalHeight / 2, rearPostZ);
     rearLeftPostMesh.castShadow = true;
     scene.add(rearLeftPostMesh);
 
     const rearRightPostMesh = new THREE.Mesh(postGeometry, postMaterial);
-    rearRightPostMesh.position.set(rearPostXOffset, GOAL_HEIGHT / 2, rearPostZ);
+    rearRightPostMesh.position.set(rearPostXOffset, this.goalHeight / 2, rearPostZ);
     rearRightPostMesh.castShadow = true;
     scene.add(rearRightPostMesh);
 
     const sideBarGeometry = new THREE.BoxGeometry(postWidth, postWidth, depthSpan);
     const leftFloorBarMesh = new THREE.Mesh(sideBarGeometry, postMaterial);
-    leftFloorBarMesh.position.set(-rearPostXOffset, floorHeight, GOAL_DEPTH - depthSpan / 2);
+    leftFloorBarMesh.position.set(-rearPostXOffset, floorHeight, this.goalDepth - depthSpan / 2);
     leftFloorBarMesh.castShadow = true;
     scene.add(leftFloorBarMesh);
 
     const rightFloorBarMesh = new THREE.Mesh(sideBarGeometry, postMaterial);
-    rightFloorBarMesh.position.set(rearPostXOffset, floorHeight, GOAL_DEPTH - depthSpan / 2);
+    rightFloorBarMesh.position.set(rearPostXOffset, floorHeight, this.goalDepth - depthSpan / 2);
     rightFloorBarMesh.castShadow = true;
     scene.add(rightFloorBarMesh);
 
@@ -107,33 +115,33 @@ export class Goal {
 
     const topBarGeometry = new THREE.BoxGeometry(postWidth, postWidth, depthSpan);
     const leftTopBarMesh = new THREE.Mesh(topBarGeometry, postMaterial);
-    leftTopBarMesh.position.set(-rearPostXOffset, GOAL_HEIGHT - POST_RADIUS, GOAL_DEPTH - depthSpan / 2);
+    leftTopBarMesh.position.set(-rearPostXOffset, this.goalHeight - this.postRadius, this.goalDepth - depthSpan / 2);
     leftTopBarMesh.castShadow = true;
     scene.add(leftTopBarMesh);
 
     const rightTopBarMesh = new THREE.Mesh(topBarGeometry, postMaterial);
-    rightTopBarMesh.position.set(rearPostXOffset, GOAL_HEIGHT - POST_RADIUS, GOAL_DEPTH - depthSpan / 2);
+    rightTopBarMesh.position.set(rearPostXOffset, this.goalHeight - this.postRadius, this.goalDepth - depthSpan / 2);
     rightTopBarMesh.castShadow = true;
     scene.add(rightTopBarMesh);
 
-    const crossbarGeometry = new THREE.BoxGeometry(CROSSBAR_LENGTH, postWidth, postWidth);
+    const crossbarGeometry = new THREE.BoxGeometry(this.goalWidth, postWidth, postWidth);
     const crossbarMesh = new THREE.Mesh(crossbarGeometry, postMaterial);
-    crossbarMesh.position.set(0, GOAL_HEIGHT - POST_RADIUS, GOAL_DEPTH);
+    crossbarMesh.position.set(0, this.goalHeight - this.postRadius, this.goalDepth);
     crossbarMesh.castShadow = true;
     scene.add(crossbarMesh);
 
-    const postShape = new CANNON.Box(new CANNON.Vec3(POST_RADIUS, GOAL_HEIGHT / 2, POST_RADIUS));
+    const postShape = new CANNON.Box(new CANNON.Vec3(this.postRadius, this.goalHeight / 2, this.postRadius));
 
     const leftPostBody = createStaticBody(
       world,
       postShape,
-      new CANNON.Vec3(-GOAL_WIDTH / 2, GOAL_HEIGHT / 2, GOAL_DEPTH)
+      new CANNON.Vec3(-this.goalWidth / 2, this.goalHeight / 2, this.goalDepth)
     );
 
     const rightPostBody = createStaticBody(
       world,
       postShape,
-      new CANNON.Vec3(GOAL_WIDTH / 2, GOAL_HEIGHT / 2, GOAL_DEPTH)
+      new CANNON.Vec3(this.goalWidth / 2, this.goalHeight / 2, this.goalDepth)
     );
 
     const floorBarShape = new CANNON.Box(new CANNON.Vec3(postWidth / 2, postWidth / 2, depthSpan / 2));
@@ -141,13 +149,13 @@ export class Goal {
     const floorLeftBody = createStaticBody(
       world,
       floorBarShape,
-      new CANNON.Vec3(-rearPostXOffset, floorHeight, GOAL_DEPTH - depthSpan / 2)
+      new CANNON.Vec3(-rearPostXOffset, floorHeight, this.goalDepth - depthSpan / 2)
     );
 
     const floorRightBody = createStaticBody(
       world,
       floorBarShape,
-      new CANNON.Vec3(rearPostXOffset, floorHeight, GOAL_DEPTH - depthSpan / 2)
+      new CANNON.Vec3(rearPostXOffset, floorHeight, this.goalDepth - depthSpan / 2)
     );
 
     const backBarShape = new CANNON.Box(new CANNON.Vec3(backBarWidth / 2, postWidth / 2, postWidth / 2));
@@ -163,41 +171,41 @@ export class Goal {
     const topLeftBody = createStaticBody(
       world,
       topBarShape,
-      new CANNON.Vec3(-rearPostXOffset, GOAL_HEIGHT - POST_RADIUS, GOAL_DEPTH - depthSpan / 2)
+      new CANNON.Vec3(-rearPostXOffset, this.goalHeight - this.postRadius, this.goalDepth - depthSpan / 2)
     );
 
     const topRightBody = createStaticBody(
       world,
       topBarShape,
-      new CANNON.Vec3(rearPostXOffset, GOAL_HEIGHT - POST_RADIUS, GOAL_DEPTH - depthSpan / 2)
+      new CANNON.Vec3(rearPostXOffset, this.goalHeight - this.postRadius, this.goalDepth - depthSpan / 2)
     );
 
     const rearLeftPostBody = createStaticBody(
       world,
       postShape,
-      new CANNON.Vec3(-rearPostXOffset, GOAL_HEIGHT / 2, rearPostZ)
+      new CANNON.Vec3(-rearPostXOffset, this.goalHeight / 2, rearPostZ)
     );
 
     const rearRightPostBody = createStaticBody(
       world,
       postShape,
-      new CANNON.Vec3(rearPostXOffset, GOAL_HEIGHT / 2, rearPostZ)
+      new CANNON.Vec3(rearPostXOffset, this.goalHeight / 2, rearPostZ)
     );
 
     const crossbarBody = createStaticBody(
       world,
-      new CANNON.Box(new CANNON.Vec3(CROSSBAR_LENGTH / 2, POST_RADIUS, POST_RADIUS)),
-      new CANNON.Vec3(0, GOAL_HEIGHT - POST_RADIUS, GOAL_DEPTH)
+      new CANNON.Box(new CANNON.Vec3(this.goalWidth / 2, this.postRadius, this.postRadius)),
+      new CANNON.Vec3(0, this.goalHeight - this.postRadius, this.goalDepth)
     );
 
-    const sensorWidth = Math.max(GOAL_WIDTH - POST_RADIUS * 2, 0.1);
-    const sensorHeight = Math.max(GOAL_HEIGHT - POST_RADIUS * 1.8, 0.1);
+    const sensorWidth = Math.max(this.goalWidth - this.postRadius * 2, 0.1);
+    const sensorHeight = Math.max(this.goalHeight - this.postRadius * 1.8, 0.1);
     const sensorDepth = BALL_RADIUS * 0.6;
     const sensorOffset = -(sensorDepth * 0.5 + BALL_RADIUS);
     const sensorBody = createStaticBody(
       world,
       new CANNON.Box(new CANNON.Vec3(sensorWidth / 2, sensorHeight / 2, sensorDepth / 2)),
-      new CANNON.Vec3(0, sensorHeight / 2, GOAL_DEPTH + sensorOffset)
+      new CANNON.Vec3(0, sensorHeight / 2, this.goalDepth + sensorOffset)
     );
     sensorBody.collisionResponse = false;
 
@@ -215,7 +223,7 @@ export class Goal {
       sensor: sensorBody,
       netPanels: this.netColliders
     };
-    this.net = new GoalNet(scene);
+    this.net = new GoalNet(scene, this.goalWidth, this.goalHeight, this.goalDepth, this.postRadius);
     this.netAnimator = new GoalNetAnimator(this.net);
     this.createNetColliders(world, ballMaterial);
   }
@@ -273,29 +281,29 @@ export class Goal {
     });
     world.addContactMaterial(contact);
 
-    const postWidth = POST_RADIUS * 2;
+    const postWidth = this.postRadius * 2;
     const frameThickness = Math.max(postWidth * 0.75, 0.02);
     const halfFrameThickness = frameThickness / 2;
 
     const netHeight = Math.max(bounds.maxY - bounds.minY, 0.1);
     const netCenterY = (bounds.maxY + bounds.minY) / 2;
     const depthSpan = GOAL_NET_CONFIG.layout.depthBottom;
-    const rearPostZ = GOAL_DEPTH - depthSpan;
-    const midZ = GOAL_DEPTH - depthSpan / 2;
-    const interiorHalfWidth = Math.max(GOAL_WIDTH / 2 - halfFrameThickness, halfFrameThickness);
+    const rearPostZ = this.goalDepth - depthSpan;
+    const midZ = this.goalDepth - depthSpan / 2;
+    const interiorHalfWidth = Math.max(this.goalWidth / 2 - halfFrameThickness, halfFrameThickness);
 
     const backHalfExtents = new CANNON.Vec3(interiorHalfWidth, netHeight / 2, halfFrameThickness);
     const backCenter = new CANNON.Vec3(0, netCenterY, rearPostZ);
     this.addNetCollider(world, netMaterial, backHalfExtents, backCenter);
 
     const sideHalfExtents = new CANNON.Vec3(halfFrameThickness, netHeight / 2, depthSpan / 2);
-    const leftCenter = new CANNON.Vec3(-GOAL_WIDTH / 2 + halfFrameThickness, netCenterY, midZ);
-    const rightCenter = new CANNON.Vec3(GOAL_WIDTH / 2 - halfFrameThickness, netCenterY, midZ);
+    const leftCenter = new CANNON.Vec3(-this.goalWidth / 2 + halfFrameThickness, netCenterY, midZ);
+    const rightCenter = new CANNON.Vec3(this.goalWidth / 2 - halfFrameThickness, netCenterY, midZ);
     this.addNetCollider(world, netMaterial, sideHalfExtents, leftCenter);
     this.addNetCollider(world, netMaterial, sideHalfExtents, rightCenter);
 
     const topHalfExtents = new CANNON.Vec3(interiorHalfWidth, halfFrameThickness, depthSpan / 2);
-    const topCenter = new CANNON.Vec3(0, GOAL_HEIGHT - POST_RADIUS - halfFrameThickness, midZ);
+    const topCenter = new CANNON.Vec3(0, this.goalHeight - this.postRadius - halfFrameThickness, midZ);
     this.addNetCollider(world, netMaterial, topHalfExtents, topCenter);
   }
 

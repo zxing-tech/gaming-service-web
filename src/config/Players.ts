@@ -6,8 +6,8 @@ import { MIXAMO_KEEPER_FBX_BASE } from './Obstacles';
  */
 export const PLAYERS_CONFIG = {
   kicker: {
-    assetUrl: getAssetPath('/assets/models/Strike Foward Jog (1).fbx'),
-    idleAssetUrl: getAssetPath('/assets/models/Happy Idle.fbx'),
+    assetUrl: getAssetPath('/assets/models/Strike Foward Jog.fbx'),
+    idleAssetUrl: getAssetPath('/assets/models/Happy Idle (2).fbx'),
     sourceFormat: 'fbx',
   },
   goalkeeper: {

@@ -9,7 +9,7 @@ import type { Field } from '../environment/Field';
 import { Ball } from '../entities/ball/Ball';
 import { BallController } from '../entities/ball/BallController';
 import { Goal } from '../entities/goal/Goal';
-import { BALL_THEMES } from '../config/Ball';
+import { BALL_RADIUS, BALL_THEMES } from '../config/Ball';
 import { GOAL_DEPTH } from '../config/Goal';
 
 import { AudioManager } from '../infra/Audio';
@@ -43,7 +43,6 @@ import {
   resolvePrizeTierConfig,
   type PrizeTierConfig
 } from '../config/PrizeTiers';
-
 export class SnapShoot {
   private readonly onScoreChange: (score: number) => void;
   private isNewRecord = false;
@@ -71,6 +70,7 @@ export class SnapShoot {
     velocity: CANNON.Vec3;
     angularVelocity: CANNON.Vec3;
     analysis: any;
+    predictedTargetX: number;
   } | null = null;
 
   private debugVisualizer!: DebugVisualizer;
@@ -78,6 +78,13 @@ export class SnapShoot {
   private lastBounceSoundTime = 0;
   private score = 0;
   private shotResetTimer: number | null = null;
+  private keeperCatchHandledForCurrentShot = false;
+  private keeperShotProfile: {
+    startMs: number;
+    predictedTargetX: number;
+    shotSpeed: number;
+  } | null = null;
+  private readonly preStepBallPosition = new CANNON.Vec3();
   private failCount = 0;
   private isPaused = false;
 
@@ -108,9 +115,6 @@ export class SnapShoot {
   }
 
 
-  private isTrackingBall = false;
-  private trackingStartTime = 0;
-
   private readonly clock = new THREE.Clock();
 
   private readonly handleResizeBound = () => this.handleResize();
@@ -134,10 +138,6 @@ export class SnapShoot {
     gameEventBus.on('CONTINUE_GIVE_UP', () => this.gameOver());
     gameEventBus.on('CONTINUE_GAME_SUCCESS', () => this.continueGame());
     
-    gameEventBus.on('THEME_CHANGED', (event: any) => {
-      void this.switchToTheme(event.themeName);
-    });
-
     gameEventBus.on('GAME_PAUSED', () => {
       this.isPaused = true;
       this.pauseAudio();
@@ -244,6 +244,7 @@ export class SnapShoot {
     this.gameLog.info(`⚽ GOAL! Score: ${this.score + 1}`);
 
     this.score += 1;
+    this.applyAutoTierByScore(this.score);
     this.updateScore(this.score);
     this.resetIdleTimer();
 
@@ -275,8 +276,10 @@ export class SnapShoot {
       this.gameLog.info(
         `🏆 Top prize reached: score=${this.score}, tier=${this.activePrizeTierConfig.tierName}, threshold=${this.activePrizeTierConfig.topPrizePoints}`
       );
-      this.gameOver();
+      // Keep session running after top-prize threshold so players can continue scoring.
     }
+
+    this.inputController.clearSwipeTrailDisplay();
   }
 
   private handleBallCollide(event: { body: CANNON.Body }) {
@@ -291,7 +294,13 @@ export class SnapShoot {
       const bounceSound = this.ball.getTheme().sounds?.bounce ?? 'bounce';
       this.audio.playSound(bounceSound);
     } else if (this.difficultyManager.getObstacles().some((obstacle) => obstacle.body === event.body)) {
-      this.audio.playSound('save');
+      const hitObstacle = this.difficultyManager.getObstacles().find((obstacle) => obstacle.body === event.body);
+      if (hitObstacle?.blueprintId === 'keeperWall') {
+        // Direct physics contact with keeper always counts as a save.
+        this.handleKeeperCatch(false);
+      } else {
+        this.audio.playSound('save');
+      }
     } else if (
       event.body === this.goal.bodies.leftPost ||
       event.body === this.goal.bodies.rightPost ||
@@ -311,6 +320,50 @@ export class SnapShoot {
     }
   }
 
+  private handleKeeperCatch(applySideLock = true): void {
+    if (!this.isShotInProgress || this.hasScored || this.keeperCatchHandledForCurrentShot) return;
+
+    const keeper = this.difficultyManager
+      .getObstacles()
+      .find((obstacle) => obstacle.blueprintId === 'keeperWall');
+    if (!keeper) return;
+
+    // Side lock: if keeper commits to one dive side, opposite-side ball contact should not become a "catch".
+    if (applySideLock) {
+      const diveSide = keeper.getKeeperCommittedDiveSide();
+      if (diveSide !== 0) {
+        const dx = this.ball.body.position.x - keeper.body.position.x;
+        const deadZone = 0.4;
+        const ballSide = dx > deadZone ? 1 : dx < -deadZone ? -1 : 0;
+        if (ballSide !== 0 && ballSide !== diveSide) {
+          const movingAway = this.ball.body.velocity.x * ballSide > 0;
+          if (movingAway) return;
+        }
+      }
+    }
+
+    this.keeperCatchHandledForCurrentShot = true;
+    this.audio.playSound('save');
+
+    // Keeper catch: absorb shot momentum so the ball is secured.
+    this.ball.body.velocity.set(0, 0, 0);
+    this.ball.body.angularVelocity.set(0, 0, 0);
+    this.ball.body.force.set(0, 0, 0);
+    this.ball.body.torque.set(0, 0, 0);
+
+    this.curveForceSystem.stopCurveShot();
+
+    this.inputController.clearSwipeTrailDisplay();
+
+    // Quick reset after save feels like an actual catch.
+    if (this.shotResetTimer !== null) {
+      clearTimeout(this.shotResetTimer);
+    }
+    this.shotResetTimer = window.setTimeout(() => {
+      this.resetAfterShot();
+    }, 700);
+  }
+
   private attachEventListeners() {
     window.addEventListener('resize', this.handleResizeBound);
 
@@ -323,6 +376,7 @@ export class SnapShoot {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.debugVisualizer.handleResize(window.innerWidth, window.innerHeight);
+    this.field.resizeGroundLogoForViewport();
   }
 
   private animate = () => {
@@ -332,32 +386,130 @@ export class SnapShoot {
 
     if (this.isPaused) return;
 
-
-
-    this.world.step(GAME_CONFIG.physics.timeStep, deltaTime, GAME_CONFIG.physics.substeps);
+    // Kick / pending launch first so ball velocity exists before integration.
+    this.characterActors.update(deltaTime, this.ball.body.position, this.isShotInProgress);
+    this.flushPendingShotLaunch();
+    // Curve forces then kinematic obstacles (keeper) must match the frame *before* world.step,
+    // otherwise the ball is integrated against the keeper's previous pose and can tunnel.
     this.curveForceSystem.update(deltaTime, this.ball.body);
-
     this.difficultyManager.getObstacles().forEach((obstacle) => obstacle.update(deltaTime));
+    this.preStepBallPosition.copy(this.ball.body.position);
+    const ballSpeed = this.ball.body.velocity.length();
+    const dynamicSubsteps =
+      ballSpeed > 20 ? 16 : ballSpeed > 10 ? 8 : GAME_CONFIG.physics.substeps;
+    this.world.step(GAME_CONFIG.physics.timeStep, deltaTime, dynamicSubsteps);
+    this.tryKeeperProximityCatch(this.preStepBallPosition);
     this.goal.update(deltaTime);
     this.field.update(deltaTime);
 
-
-    if (this.isTrackingBall) {
-      const now = performance.now();
-      const elapsed = (now - this.trackingStartTime) / 1000;
-      if (elapsed > 1.0 || !this.isShotInProgress) {
-        this.isTrackingBall = false;
-      }
-    }
-
     this.ball.syncVisuals();
-    this.characterActors.update(deltaTime, this.ball.body.position, this.isShotInProgress);
-    this.flushPendingShotLaunch();
     this.debugVisualizer.updateColliderVisuals();
     this.debugVisualizer.updateSwipeDebugLine();
 
     this.renderer.render(this.scene, this.camera);
   };
+
+  /**
+   * Fallback catch window so diving/body-block animations reliably translate into saves
+   * even when high-speed contact events are missed by discrete collision steps.
+   */
+  private tryKeeperProximityCatch(preStepBallPos: CANNON.Vec3): void {
+    if (!this.isShotInProgress || this.hasScored || this.keeperCatchHandledForCurrentShot) return;
+
+    const keeper = this.difficultyManager
+      .getObstacles()
+      .find((obstacle) => obstacle.blueprintId === 'keeperWall');
+    if (!keeper) return;
+
+    const shot = this.keeperShotProfile;
+    if (!shot) return;
+    const ballPos = this.ball.body.position;
+    const keeperX = keeper.getKeeperPatrolX();
+    const keeperZ = keeper.body.position.z;
+    const keeperFeetY = keeper.body.position.y;
+    const isFastShot = shot.shotSpeed > 12;
+    if (!isFastShot) {
+      const elapsedMs = performance.now() - shot.startMs;
+      const reactionDelayMs = THREE.MathUtils.clamp(120 - shot.shotSpeed * 1.5, 40, 120);
+      if (elapsedMs < reactionDelayMs) return;
+    }
+
+    const diveSide = keeper.getKeeperCommittedDiveSide();
+    const upperCX = diveSide === 0 ? keeperX : keeperX + diveSide * 0.48;
+    const upperCY = keeperFeetY + 1.05;
+    const upperCZ = keeperZ;
+    const upperHXDiveSide = 0.85 + BALL_RADIUS;
+    const upperHXOtherSide = 0.18 + BALL_RADIUS;
+    const upperHY = 0.75 + BALL_RADIUS;
+    const upperHZ = 0.45 + BALL_RADIUS;
+
+    const lowerCX = diveSide === 0 ? keeperX : keeperX + diveSide * 0.22;
+    const lowerCY = keeperFeetY + 0.4;
+    const lowerCZ = keeperZ;
+    const lowerHXDiveSide = 0.5 + BALL_RADIUS;
+    const lowerHXOtherSide = 0.18 + BALL_RADIUS;
+    const lowerHY = 0.42 + BALL_RADIUS;
+    const lowerHZ = 0.45 + BALL_RADIUS;
+
+    const inUpper = (px: number, py: number, pz: number) => {
+      const dx = px - upperCX;
+      const maxDx = diveSide === 0
+        ? upperHXDiveSide
+        : (Math.sign(dx) === diveSide ? upperHXDiveSide : upperHXOtherSide);
+      return Math.abs(dx) <= maxDx &&
+        py >= upperCY - upperHY &&
+        py <= upperCY + upperHY &&
+        Math.abs(pz - upperCZ) <= upperHZ;
+    };
+    const inLower = (px: number, py: number, pz: number) => {
+      const dx = px - lowerCX;
+      const maxDx = diveSide === 0
+        ? lowerHXDiveSide
+        : (Math.sign(dx) === diveSide ? lowerHXDiveSide : lowerHXOtherSide);
+      return Math.abs(dx) <= maxDx &&
+        py >= lowerCY - lowerHY &&
+        py <= lowerCY + lowerHY &&
+        Math.abs(pz - lowerCZ) <= lowerHZ;
+    };
+    const inBody = (px: number, py: number, pz: number) => inUpper(px, py, pz) || inLower(px, py, pz);
+
+    if (
+      inBody(ballPos.x, ballPos.y, ballPos.z) ||
+      inBody(preStepBallPos.x, preStepBallPos.y, preStepBallPos.z)
+    ) {
+      this.handleKeeperCatch(false);
+      return;
+    }
+
+    const segDx = ballPos.x - preStepBallPos.x;
+    const segDy = ballPos.y - preStepBallPos.y;
+    const segDz = ballPos.z - preStepBallPos.z;
+    const segLenSq = segDx * segDx + segDy * segDy + segDz * segDz;
+    if (segLenSq > 1e-6) {
+      const sweepTest = (cx: number, cy: number, cz: number): boolean => {
+        const relX = preStepBallPos.x - cx;
+        const relY = preStepBallPos.y - cy;
+        const relZ = preStepBallPos.z - cz;
+        const t = THREE.MathUtils.clamp(
+          -(relX * segDx + relY * segDy + relZ * segDz) / segLenSq,
+          0,
+          1
+        );
+        return inBody(
+          preStepBallPos.x + segDx * t,
+          preStepBallPos.y + segDy * t,
+          preStepBallPos.z + segDz * t
+        );
+      };
+
+      if (
+        sweepTest(upperCX, upperCY, upperCZ) ||
+        sweepTest(lowerCX, lowerCY, lowerCZ)
+      ) {
+        this.handleKeeperCatch(false);
+      }
+    }
+  }
 
   public destroy() {
     if (this.shotResetTimer !== null) {
@@ -403,10 +555,31 @@ export class SnapShoot {
     this.audio.setMasterVolume(volume);
   }
 
+  /** Auto tier ramp by current run score. */
+  private resolveTierByScore(score: number): TierId {
+    // Requested ranges:
+    // Easy: 0-5, Intermediate: 6-10, Hard: 11+
+    if (score >= 11) return 3;
+    if (score >= 6) return 2;
+    return 1;
+  }
+
+  private applyAutoTierByScore(score: number): void {
+    const nextTier = this.resolveTierByScore(score);
+    if (this.activeTierConfig.tierId === nextTier) return;
+    this.applyTierDifficulty(nextTier);
+    this.gameLog.info(`🎚️ Auto-tier switched at score ${score}: ${this.activeTierConfig.difficultyName}`);
+  }
+
   public applyTierDifficulty(tierId: TierId): void {
     this.activeTierConfig = getTierConfig(tierId);
     this.activePrizeTierConfig = resolvePrizeTierConfig(tierId);
     this.difficultyManager.setTier(tierId);
+    gameEventBus.emit({
+      type: 'TIER_CHANGED',
+      tierId: this.activeTierConfig.tierId,
+      difficultyName: this.activeTierConfig.difficultyName
+    });
     this.gameLog.info(
       `🎚️ Applied ${this.activeTierConfig.tierName} (${this.activeTierConfig.difficultyName})`
     );
@@ -450,7 +623,7 @@ export class SnapShoot {
     const { swipeData } = params;
 
 
-    const shot = executeShot(swipeData);
+    const shot = executeShot(swipeData, this.activeTierConfig.tierId);
 
 
     this.shootingLog.debug(debugNormalizedSwipe(shot.debugInfo.normalized));
@@ -486,25 +659,51 @@ export class SnapShoot {
         }
       });
 
-      this.executeShooting(shot.velocity, shot.angularVelocity, shot.debugInfo.analysis);
+      this.executeShooting(
+        shot.velocity.clone(),
+        shot.angularVelocity.clone(),
+        shot.debugInfo.analysis,
+        shot.targetPosition.x
+      );
     }
   }
 
   /**
 
    */
-  private executeShooting(velocity: CANNON.Vec3, angularVelocity: CANNON.Vec3, analysis: any) {
+  private executeShooting(
+    velocity: CANNON.Vec3,
+    angularVelocity: CANNON.Vec3,
+    analysis: any,
+    predictedTargetX: number
+  ) {
 
     if (this.isShotInProgress) return;
     this.resetIdleTimer();
 
 
     this.isShotInProgress = true;
+    this.keeperCatchHandledForCurrentShot = false;
     this.hasScored = false;
 
 
     this.characterActors.triggerKick();
-    this.pendingShotLaunch = { velocity, angularVelocity, analysis };
+    // Trigger keeper reaction on the same kick-start frame (not after ball launch).
+    const keeper = this.difficultyManager.getObstacles().find((o) => o.blueprintId === 'keeperWall');
+    const shotSpeed = Math.sqrt(
+      velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z
+    );
+    this.keeperShotProfile = {
+      startMs: performance.now(),
+      predictedTargetX,
+      shotSpeed
+    };
+    keeper?.setKeeperPredictedTargetX(predictedTargetX);
+    keeper?.setKeeperIncomingShotSpeed(shotSpeed);
+    keeper?.prepareKeeperForIncomingShot();
+    keeper?.setKeeperMovementArmed(true);
+
+    this.pendingShotLaunch = { velocity, angularVelocity, analysis, predictedTargetX };
 
     if (this.touchGuideTimer !== null) {
       clearTimeout(this.touchGuideTimer);
@@ -522,22 +721,16 @@ export class SnapShoot {
 
     // Kick contact frame: enable physics and launch in same tick for tighter sync.
     this.ballController.prepareBallForShot();
-    this.isTrackingBall = true;
-    this.trackingStartTime = performance.now();
 
     this.ball.body.velocity.copy(velocity);
     this.ball.body.angularVelocity.copy(angularVelocity);
     this.curveForceSystem.startCurveShot(analysis);
+    if (this.keeperShotProfile) {
+      // Start keeper reaction timing when ball actually leaves foot.
+      this.keeperShotProfile.startMs = performance.now();
+    }
 
     this.difficultyManager.getObstacles().forEach((obstacle) => obstacle.startTracking());
-    this.difficultyManager
-      .getObstacles()
-      .find((o) => o.blueprintId === 'keeperWall')
-      ?.prepareKeeperForIncomingShot();
-    this.difficultyManager
-      .getObstacles()
-      .find((o) => o.blueprintId === 'keeperWall')
-      ?.setKeeperMovementArmed(true);
 
     this.shotResetTimer = window.setTimeout(() => {
       this.resetAfterShot();
@@ -550,6 +743,7 @@ export class SnapShoot {
   private resetAfterShot() {
     console.log('Reset after shot - Scored:', this.hasScored);
 
+    this.inputController.clearSwipeTrailDisplay();
 
     if (!this.hasScored) {
 
@@ -578,6 +772,8 @@ export class SnapShoot {
     this.hasScored = false;
     this.shotResetTimer = null;
     this.pendingShotLaunch = null;
+    this.keeperCatchHandledForCurrentShot = false;
+    this.keeperShotProfile = null;
 
 
     this.curveForceSystem.stopCurveShot();
@@ -591,6 +787,7 @@ export class SnapShoot {
     this.ballController.resetBall();
     this.characterActors.reset();
 
+    this.applyAutoTierByScore(this.score);
 
     this.difficultyManager.resetAllTracking();
     this.difficultyManager.updateDifficulty(this.score, true);
@@ -656,6 +853,7 @@ export class SnapShoot {
     }
 
     this.score = 0;
+    this.applyAutoTierByScore(this.score);
     this.updateScore(this.score);
     this.resetNewRecordFlag();
 
@@ -705,6 +903,7 @@ export class SnapShoot {
     gameEventBus.emit({ type: 'SHOW_GAME_OVER_MODAL', score: finalScore });
 
     this.score = 0;
+    this.applyAutoTierByScore(this.score);
     this.updateScore(this.score);
     this.resetNewRecordFlag();
 

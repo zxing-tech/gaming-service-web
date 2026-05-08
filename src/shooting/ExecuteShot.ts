@@ -5,6 +5,7 @@ import { analyzeShotType, ShotType } from './ShotAnalyzer';
 import { calculateShotParameters } from './ShotParameters';
 import { calculateInitialVelocity } from './VelocityCalculator';
 import { calculateAngularVelocity } from './SpinCalculator';
+import type { TierId } from '../config/TierDifficulty';
 
 /**
 
@@ -41,7 +42,7 @@ export interface ShotResult {
 
 
  */
-export function executeShot(swipeData: any): ShotResult {
+export function executeShot(swipeData: any, tierId: TierId = 1): ShotResult {
   // Step 1: Normalize swipe
 
   const normalized = normalizeSwipeData(swipeData);
@@ -52,7 +53,7 @@ export function executeShot(swipeData: any): ShotResult {
 
   // Step 3: Calculate shot parameters
 
-  const shotParams = calculateShotParameters(normalized, analysis);
+  const shotParams = calculateShotParameters(normalized, analysis, tierId);
 
   // Step 4: Calculate initial velocity
 

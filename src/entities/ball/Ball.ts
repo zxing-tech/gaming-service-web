@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { BALL_CONFIG, BALL_RADIUS, BALL_START_POSITION, BALL_PHYSICS } from '../../config/Ball';
 import type { BallTheme } from '../../config/Ball';
 
@@ -24,6 +25,7 @@ console.log('START_ROTATION:', START_ROTATION);
 
 export class Ball {
   private readonly rotationHelper = new THREE.Quaternion();
+  private readonly visualYOffset = 0.015;
   private theme: BallTheme;
   private scene: THREE.Scene | null = null;
   private loadingManager: THREE.LoadingManager | null = null;
@@ -49,11 +51,7 @@ export class Ball {
   async load(scene: THREE.Scene, manager: THREE.LoadingManager = THREE.DefaultLoadingManager): Promise<void> {
     this.scene = scene;
     this.loadingManager = manager;
-
-    const loader = new GLTFLoader(manager);
-
-    const gltf = await loader.loadAsync(this.theme.modelUrl);
-    const mesh = this.prepareVisual(gltf.scene);
+    const mesh = await this.loadThemeModel(this.theme, manager);
     scene.add(mesh);
     this.mesh = mesh;
     this.syncVisuals();
@@ -72,14 +70,22 @@ export class Ball {
 
 
     this.theme = newTheme;
-
-
-    const loader = new GLTFLoader(this.loadingManager);
-    const gltf = await loader.loadAsync(this.theme.modelUrl);
-    const mesh = this.prepareVisual(gltf.scene);
+    const mesh = await this.loadThemeModel(this.theme, this.loadingManager);
     this.scene.add(mesh);
     this.mesh = mesh;
     this.syncVisuals();
+  }
+
+  private async loadThemeModel(theme: BallTheme, manager: THREE.LoadingManager): Promise<THREE.Object3D> {
+    if (theme.sourceFormat === 'fbx') {
+      const fbxLoader = new FBXLoader(manager);
+      const model = await fbxLoader.loadAsync(encodeURI(theme.modelUrl));
+      return this.prepareVisual(model);
+    }
+
+    const gltfLoader = new GLTFLoader(manager);
+    const gltf = await gltfLoader.loadAsync(theme.modelUrl);
+    return this.prepareVisual(gltf.scene);
   }
 
   getTheme(): BallTheme {
@@ -98,7 +104,7 @@ export class Ball {
   syncVisuals(): void {
     if (!this.mesh) return;
     const { x, y, z } = this.body.position;
-    this.mesh.position.set(x, y, z);
+    this.mesh.position.set(x, y + this.visualYOffset, z);
     this.rotationHelper.set(
       this.body.quaternion.x,
       this.body.quaternion.y,
@@ -113,18 +119,38 @@ export class Ball {
     model.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(model);
     const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    let hasRenderableMesh = false;
     
 
     model.traverse((child) => {
       if (child instanceof THREE.Mesh && child.geometry) {
+        hasRenderableMesh = true;
         child.geometry.translate(-center.x, -center.y, -center.z);
         child.castShadow = true;
         this.adjustMaterial(child.material);
       }
     });
 
+    if (!hasRenderableMesh) {
+      const fallback = new THREE.Mesh(
+        new THREE.SphereGeometry(BALL_RADIUS, 24, 16),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.05 })
+      );
+      fallback.castShadow = true;
+      model.add(fallback);
+    }
 
-    model.scale.setScalar(this.theme.gltfScale);
+
+    // Normalize imported model to physics ball diameter, then apply theme multiplier.
+    if (maxDim > 0) {
+      const desiredDiameter = BALL_RADIUS * 2;
+      const normalizeScale = desiredDiameter / maxDim;
+      model.scale.setScalar(normalizeScale * this.theme.gltfScale);
+    } else {
+      model.scale.setScalar(this.theme.gltfScale);
+    }
     model.position.set(START_POSITION.x, START_POSITION.y, START_POSITION.z);
     
 

@@ -27,6 +27,29 @@ export const DEBUG_CONFIG = {
     opacity: 0.7,
   },
 
+  /** Player-visible swipe ribbon (thick white trail from ball). */
+  swipeTrail: {
+
+    lineWidth: 0.09,
+
+    opacity: 0.98,
+
+    catmullMinDivisions: 28,
+
+    catmullMaxDivisions: 96,
+
+    /**
+     * Screen speed (px/ms) past which the ribbon uses a raw polyline — matches a quick flick
+     * so the line doesn’t feel “laggy” behind the finger.
+     */
+    fastSwipePxPerMs: 0.32,
+
+    /**
+     * With many samples (coalesced fast moves), skip extra spline smoothing.
+     */
+    rawPolylineMinControlPoints: 16,
+  },
+
   /**
 
    */
