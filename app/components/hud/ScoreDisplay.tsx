@@ -7,6 +7,7 @@ export function ScoreDisplay() {
   const [displayScore, setDisplayScore] = useState(0);
   const [lives, setLives] = useState({ remaining: 2, total: 2 });
   const [tierTimer, setTierTimer] = useState({ remainingMs: 60_000, totalMs: 60_000, tierId: 1 as 1 | 2 | 3 });
+  const [isCinematic, setIsCinematic] = useState(false);
   const animationFrameRef = useRef<number | null>(null);
 
   useGameEvent('SCORE_CHANGED', (event) => {
@@ -23,6 +24,10 @@ export function ScoreDisplay() {
       totalMs: event.totalMs,
       tierId: event.tierId
     });
+  });
+
+  useGameEvent('CINEMATIC_CAMERA_CHANGED', (event) => {
+    setIsCinematic(event.active);
   });
 
   const animateScore = (from: number, to: number) => {
@@ -98,7 +103,7 @@ export function ScoreDisplay() {
 
       {/* Sponsor strip + score — width capped so it never spills past rounded displays */}
       <div
-        className="pointer-events-none absolute left-1/2 z-[6] flex w-[min(280px,calc(100vw-16px))] max-w-[92vw] -translate-x-1/2 flex-col items-center px-1"
+        className={`pointer-events-none absolute left-1/2 z-[6] flex w-[min(280px,calc(100vw-16px))] max-w-[92vw] -translate-x-1/2 flex-col items-center px-1 transition-opacity duration-300 ${isCinematic ? 'opacity-0' : 'opacity-100'}`}
         style={{
           top: 'calc(env(safe-area-inset-top, 0px) + max(6px, 1vh))'
         }}

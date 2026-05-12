@@ -1,7 +1,15 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { createRenderer } from '../infra/Graphics';
-import { createPerspectiveCamera } from '../infra/Camera';
+import {
+  createPerspectiveCamera,
+  DEFAULT_CAMERA_POSITION,
+  DEFAULT_CAMERA_LOOKAT,
+  BALL_FOLLOW_OFFSET,
+  BALL_FOLLOW_LOOKAHEAD_Z,
+  BALL_FOLLOW_LERP_IN,
+  BALL_FOLLOW_LERP_OUT
+} from '../infra/Camera';
 import { configureSceneLighting } from '../infra/Lighting';
 import { createPhysicsWorld } from '../physics/World';
 import { createField } from '../environment/Field';
@@ -116,6 +124,11 @@ export class SnapShoot {
 
 
   private readonly clock = new THREE.Clock();
+
+  private isFollowingBall = false;
+  private readonly cameraLookTarget = new THREE.Vector3().copy(DEFAULT_CAMERA_LOOKAT);
+  private readonly cameraTargetPos = new THREE.Vector3();
+  private readonly cameraLookScratch = new THREE.Vector3();
 
   private readonly handleResizeBound = () => this.handleResize();
   private readonly handleBallCollideBound = (event: { body: CANNON.Body }) => this.handleBallCollide(event);
@@ -399,11 +412,35 @@ export class SnapShoot {
     this.field.update(deltaTime);
 
     this.ball.syncVisuals();
+    this.updateCameraFollow(deltaTime);
     this.debugVisualizer.updateColliderVisuals();
     this.debugVisualizer.updateSwipeDebugLine();
 
     this.renderer.render(this.scene, this.camera);
   };
+
+  private updateCameraFollow(deltaTime: number): void {
+    const lerpBase = this.isFollowingBall ? BALL_FOLLOW_LERP_IN : BALL_FOLLOW_LERP_OUT;
+    // Frame-rate independent smoothing: matches `lerpBase` per frame at 60fps, decays from there.
+    const t = 1 - Math.pow(1 - lerpBase, deltaTime * 60);
+
+    if (this.isFollowingBall) {
+      const ballPos = this.ball.body.position;
+      this.cameraTargetPos.set(
+        ballPos.x + BALL_FOLLOW_OFFSET.x,
+        ballPos.y + BALL_FOLLOW_OFFSET.y,
+        ballPos.z + BALL_FOLLOW_OFFSET.z
+      );
+      this.cameraLookScratch.set(ballPos.x, ballPos.y, ballPos.z + BALL_FOLLOW_LOOKAHEAD_Z);
+    } else {
+      this.cameraTargetPos.copy(DEFAULT_CAMERA_POSITION);
+      this.cameraLookScratch.copy(DEFAULT_CAMERA_LOOKAT);
+    }
+
+    this.camera.position.lerp(this.cameraTargetPos, t);
+    this.cameraLookTarget.lerp(this.cameraLookScratch, t);
+    this.camera.lookAt(this.cameraLookTarget);
+  }
 
   /**
    * Fallback catch window so diving/body-block animations reliably translate into saves
@@ -725,6 +762,8 @@ export class SnapShoot {
     this.ball.body.velocity.copy(velocity);
     this.ball.body.angularVelocity.copy(angularVelocity);
     this.curveForceSystem.startCurveShot(analysis);
+    this.isFollowingBall = true;
+    gameEventBus.emit({ type: 'CINEMATIC_CAMERA_CHANGED', active: true });
     if (this.keeperShotProfile) {
       // Start keeper reaction timing when ball actually leaves foot.
       this.keeperShotProfile.startMs = performance.now();
@@ -784,6 +823,10 @@ export class SnapShoot {
    */
   private resetBall() {
 
+    if (this.isFollowingBall) {
+      this.isFollowingBall = false;
+      gameEventBus.emit({ type: 'CINEMATIC_CAMERA_CHANGED', active: false });
+    }
     this.ballController.resetBall();
     this.characterActors.reset();
 

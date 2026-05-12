@@ -64,6 +64,7 @@ export type GameEvent =
     totalMs: number;
   }
   | { type: 'DEBUG_MODE_CHANGED'; enabled: boolean }
+  | { type: 'CINEMATIC_CAMERA_CHANGED'; active: boolean }
 
 
   | { type: 'THEME_CHANGED'; themeName: string }

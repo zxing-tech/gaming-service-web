@@ -1,15 +1,13 @@
-import { defineConfig, type AppsInTossWebConfig } from '@apps-in-toss/web-framework/config';
+import { defineConfig } from '@apps-in-toss/web-framework/config';
 
-/** Granite supports this; not yet on `AppsInTossWebConfig` in all SDK versions */
-type GraniteGameCenter = { gameCenter?: { enabled: boolean } };
-
-const config: AppsInTossWebConfig & GraniteGameCenter = {
+export default defineConfig({
   webViewProps: { type: 'game' },
   appName: 'garb-football',
   brand: {
     displayName: 'Garb Football',
     primaryColor: '#35CD21',
-    icon: 'https://raw.githubusercontent.com/zxing-tech/gaming-service-web/main/public/icon.svg',
+    icon: '',
+    bridgeColorMode: 'basic',
   },
   web: {
     host: 'localhost',
@@ -21,9 +19,4 @@ const config: AppsInTossWebConfig & GraniteGameCenter = {
   },
   permissions: [],
   outdir: 'out',
-  gameCenter: {
-    enabled: true,
-  },
-};
-
-export default defineConfig(config);
+});
