@@ -133,11 +133,20 @@ export class SnapShoot {
   private readonly handleResizeBound = () => this.handleResize();
   private readonly handleBallCollideBound = (event: { body: CANNON.Body }) => this.handleBallCollide(event);
   private readonly handleGoalCollisionBound = (event: { body: CANNON.Body }) => this.handleGoalCollision(event);
+  private hasGameStarted = false;
   private touchGuideTimer: number | null = null;
+  private touchGuideDeadlineMs = 0;
   private idleTimer: number | null = null;
+  private idleTimerDeadlineMs = 0;
+  private shotResetDeadlineMs = 0;
   private tierTimer: number | null = null;
   private tierTimerInterval: number | null = null;
   private tierTimerDeadlineMs = 0;
+  private tierTimerTotalMs = 0;
+  private pausedTierRemainingMs: number | null = null;
+  private pausedIdleRemainingMs: number | null = null;
+  private pausedShotResetRemainingMs: number | null = null;
+  private pausedTouchGuideRemainingMs: number | null = null;
   private livesRemaining: number = GAME_CONFIG.session.totalLives;
   private activeTierConfig: TierDifficultyConfig = getTierConfig(DEFAULT_TIER_ID);
   private activePrizeTierConfig: PrizeTierConfig = resolvePrizeTierConfig(DEFAULT_TIER_ID);
@@ -157,15 +166,24 @@ export class SnapShoot {
     gameEventBus.on('GAME_PAUSED', () => {
       this.isPaused = true;
       this.pauseAudio();
+      this.pauseTimers();
     });
 
     gameEventBus.on('GAME_RESUMED', () => {
       this.isPaused = false;
       this.resumeAudio();
+      this.resumeTimers();
     });
 
     gameEventBus.on('UNLOCK_AUDIO', () => {
       this.audio.unlockAudioContext();
+    });
+
+    gameEventBus.on('GAME_STARTED', () => {
+      if (this.hasGameStarted) return;
+      this.hasGameStarted = true;
+      this.resetIdleTimer();
+      this.resetTierTimer();
     });
 
 
@@ -368,6 +386,8 @@ export class SnapShoot {
     if (this.shotResetTimer !== null) {
       clearTimeout(this.shotResetTimer);
     }
+    this.pausedShotResetRemainingMs = null;
+    this.shotResetDeadlineMs = performance.now() + 700;
     this.shotResetTimer = window.setTimeout(() => {
       this.resetAfterShot();
     }, 700);
@@ -771,6 +791,8 @@ export class SnapShoot {
 
     this.difficultyManager.getObstacles().forEach((obstacle) => obstacle.startTracking());
 
+    this.pausedShotResetRemainingMs = null;
+    this.shotResetDeadlineMs = performance.now() + this.activeTierConfig.shotResetMs;
     this.shotResetTimer = window.setTimeout(() => {
       this.resetAfterShot();
     }, this.activeTierConfig.shotResetMs);
@@ -846,6 +868,8 @@ export class SnapShoot {
     this.field.adBoard.switchAdSet('default');
 
     if (this.score === 0) {
+      this.pausedTouchGuideRemainingMs = null;
+      this.touchGuideDeadlineMs = performance.now() + GAME_CONFIG.timing.touchGuideDelayMs;
       this.touchGuideTimer = window.setTimeout(() => {
         gameEventBus.emit({ type: 'SHOW_TOUCH_GUIDE', show: true });
       }, GAME_CONFIG.timing.touchGuideDelayMs);
@@ -1047,12 +1071,19 @@ export class SnapShoot {
   private resetIdleTimer(): void {
     if (this.idleTimer !== null) {
       clearTimeout(this.idleTimer);
+      this.idleTimer = null;
     }
+    this.pausedIdleRemainingMs = null;
+    if (!this.hasGameStarted) return;
+    this.startIdleTimer(this.activeTierConfig.idleTimeoutMs);
+  }
 
+  private startIdleTimer(remainingMs: number): void {
+    this.idleTimerDeadlineMs = performance.now() + remainingMs;
     this.idleTimer = window.setTimeout(() => {
       this.gameLog.info('⏱️ Session ended due to inactivity');
       this.gameOver();
-    }, this.activeTierConfig.idleTimeoutMs);
+    }, remainingMs);
   }
 
   private clearTierTimer(): void {
@@ -1065,28 +1096,101 @@ export class SnapShoot {
       this.tierTimerInterval = null;
     }
     this.tierTimerDeadlineMs = 0;
+    this.tierTimerTotalMs = 0;
+    this.pausedTierRemainingMs = null;
   }
 
   private resetTierTimer(): void {
     this.clearTierTimer();
+    if (!this.hasGameStarted) return;
     const totalMs = this.activeTierConfig.tierDurationMs;
-    this.tierTimerDeadlineMs = performance.now() + totalMs;
-    this.emitTierTimerUpdated(totalMs, totalMs);
+    this.tierTimerTotalMs = totalMs;
+    this.startTierTimer(totalMs, totalMs);
+  }
+
+  private startTierTimer(remainingMs: number, totalMs: number): void {
+    this.tierTimerDeadlineMs = performance.now() + remainingMs;
+    this.tierTimerTotalMs = totalMs;
+    this.emitTierTimerUpdated(remainingMs, totalMs);
     this.tierTimerInterval = window.setInterval(() => {
       if (this.tierTimerDeadlineMs <= 0) return;
-      const remainingMs = Math.max(0, Math.ceil(this.tierTimerDeadlineMs - performance.now()));
-      this.emitTierTimerUpdated(remainingMs, totalMs);
-      if (remainingMs <= 0 && this.tierTimerInterval !== null) {
+      const r = Math.max(0, Math.ceil(this.tierTimerDeadlineMs - performance.now()));
+      this.emitTierTimerUpdated(r, totalMs);
+      if (r <= 0 && this.tierTimerInterval !== null) {
         clearInterval(this.tierTimerInterval);
         this.tierTimerInterval = null;
       }
     }, 250);
     this.tierTimer = window.setTimeout(() => {
       this.gameLog.info(
-        `⏱️ ${this.activeTierConfig.tierName} timer completed (1 minute). Ending current run.`
+        `⏱️ ${this.activeTierConfig.tierName} timer completed. Ending current run.`
       );
       this.gameOver();
-    }, totalMs);
+    }, remainingMs);
+  }
+
+  private pauseTimers(): void {
+    const now = performance.now();
+
+    if (this.tierTimer !== null) {
+      this.pausedTierRemainingMs = Math.max(0, this.tierTimerDeadlineMs - now);
+      clearTimeout(this.tierTimer);
+      this.tierTimer = null;
+    }
+    if (this.tierTimerInterval !== null) {
+      clearInterval(this.tierTimerInterval);
+      this.tierTimerInterval = null;
+    }
+
+    if (this.idleTimer !== null) {
+      this.pausedIdleRemainingMs = Math.max(0, this.idleTimerDeadlineMs - now);
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
+    }
+
+    if (this.shotResetTimer !== null) {
+      this.pausedShotResetRemainingMs = Math.max(0, this.shotResetDeadlineMs - now);
+      clearTimeout(this.shotResetTimer);
+      this.shotResetTimer = null;
+    }
+
+    if (this.touchGuideTimer !== null) {
+      this.pausedTouchGuideRemainingMs = Math.max(0, this.touchGuideDeadlineMs - now);
+      clearTimeout(this.touchGuideTimer);
+      this.touchGuideTimer = null;
+    }
+  }
+
+  private resumeTimers(): void {
+    if (this.pausedTierRemainingMs !== null) {
+      const remaining = this.pausedTierRemainingMs;
+      this.pausedTierRemainingMs = null;
+      this.startTierTimer(remaining, this.tierTimerTotalMs || this.activeTierConfig.tierDurationMs);
+    }
+
+    if (this.pausedIdleRemainingMs !== null) {
+      const remaining = this.pausedIdleRemainingMs;
+      this.pausedIdleRemainingMs = null;
+      this.startIdleTimer(remaining);
+    }
+
+    if (this.pausedShotResetRemainingMs !== null) {
+      const remaining = this.pausedShotResetRemainingMs;
+      this.pausedShotResetRemainingMs = null;
+      this.shotResetDeadlineMs = performance.now() + remaining;
+      this.shotResetTimer = window.setTimeout(() => {
+        this.resetAfterShot();
+      }, remaining);
+    }
+
+    if (this.pausedTouchGuideRemainingMs !== null) {
+      const remaining = this.pausedTouchGuideRemainingMs;
+      this.pausedTouchGuideRemainingMs = null;
+      this.touchGuideDeadlineMs = performance.now() + remaining;
+      this.touchGuideTimer = window.setTimeout(() => {
+        gameEventBus.emit({ type: 'SHOW_TOUCH_GUIDE', show: true });
+      }, remaining);
+    }
   }
 
   private emitTierTimerUpdated(remainingMs: number, totalMs: number): void {
