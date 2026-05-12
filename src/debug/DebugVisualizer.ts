@@ -40,6 +40,7 @@ export interface DebugVisualizerConfig {
   ball: Ball;
   goal: Goal;
   inputController: InputController;
+  canvas: HTMLCanvasElement;
 }
 
 /**
@@ -48,6 +49,7 @@ export interface DebugVisualizerConfig {
 export class DebugVisualizer {
   private readonly scene: THREE.Scene;
   private readonly camera: THREE.PerspectiveCamera;
+  private readonly canvas: HTMLCanvasElement;
   private readonly world: CANNON.World;
   private readonly ball: Ball;
   private readonly goal: Goal;
@@ -93,7 +95,7 @@ export class DebugVisualizer {
     this.ball = config.ball;
     this.goal = config.goal;
     this.inputController = config.inputController;
-    this.inputController = config.inputController;
+    this.canvas = config.canvas;
 
 
     this.ballColliderMesh = this.createBallColliderMesh();
@@ -112,7 +114,7 @@ export class DebugVisualizer {
       opacity: DEBUG_CONFIG.trajectory.opacity,
       worldUnits: true
     });
-    this.trajectoryMaterial.resolution.set(window.innerWidth, window.innerHeight);
+    this.trajectoryMaterial.resolution.set(this.canvas.clientWidth, this.canvas.clientHeight);
     this.trajectoryMaterial.needsUpdate = true;
     this.trajectoryLine = new Line2(this.trajectoryGeometry, this.trajectoryMaterial);
     this.trajectoryLine.computeLineDistances();
@@ -130,7 +132,7 @@ export class DebugVisualizer {
       depthTest: false,
       depthWrite: false
     });
-    this.swipeDebugMaterial.resolution.set(window.innerWidth, window.innerHeight);
+    this.swipeDebugMaterial.resolution.set(this.canvas.clientWidth, this.canvas.clientHeight);
     this.swipeDebugLine = new Line2(this.swipeDebugGeometry, this.swipeDebugMaterial);
     this.swipeDebugLine.visible = false;
     this.swipeDebugLine.renderOrder = DEBUG_CONFIG.renderOrder.swipeDebugLine;
@@ -582,8 +584,8 @@ export class DebugVisualizer {
         tempVector.copy(pos);
         tempVector.project(this.camera);
 
-        const x = (tempVector.x * 0.5 + 0.5) * window.innerWidth;
-        const y = (tempVector.y * -0.5 + 0.5) * window.innerHeight;
+        const x = (tempVector.x * 0.5 + 0.5) * this.canvas.clientWidth;
+        const y = (tempVector.y * -0.5 + 0.5) * this.canvas.clientHeight;
 
         this.swipePointLabels[i].style.left = `${x}px`;
         this.swipePointLabels[i].style.top = `${y}px`;

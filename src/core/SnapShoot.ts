@@ -200,7 +200,7 @@ export class SnapShoot {
     this.scene = new THREE.Scene();
     this.scene.background = null;
     this.renderer = createRenderer(canvas);
-    this.camera = createPerspectiveCamera();
+    this.camera = createPerspectiveCamera(canvas);
     configureSceneLighting(this.scene);
 
     const { world, materials } = createPhysicsWorld();
@@ -244,7 +244,7 @@ export class SnapShoot {
       ball: this.ball,
       goal: this.goal,
       inputController: this.inputController,
-
+      canvas,
     });
 
 
@@ -400,11 +400,13 @@ export class SnapShoot {
   }
 
   private handleResize() {
-
-    this.camera.aspect = window.innerWidth / window.innerHeight;
+    const canvas = this.renderer.domElement;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.debugVisualizer.handleResize(window.innerWidth, window.innerHeight);
+    this.renderer.setSize(width, height, false);
+    this.debugVisualizer.handleResize(width, height);
     this.field.resizeGroundLogoForViewport();
   }
 

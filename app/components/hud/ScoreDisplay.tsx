@@ -103,7 +103,7 @@ export function ScoreDisplay() {
 
       {/* Sponsor strip + score — width capped so it never spills past rounded displays */}
       <div
-        className={`pointer-events-none absolute left-1/2 z-[6] flex w-[min(280px,calc(100vw-16px))] max-w-[92vw] -translate-x-1/2 flex-col items-center px-1 transition-opacity duration-300 ${isCinematic ? 'opacity-0' : 'opacity-100'}`}
+        className={`pointer-events-none absolute left-1/2 z-[6] flex w-[min(280px,calc(100%-16px))] max-w-[92%] -translate-x-1/2 flex-col items-center px-1 transition-opacity duration-300 ${isCinematic ? 'opacity-0' : 'opacity-100'}`}
         style={{
           top: 'calc(env(safe-area-inset-top, 0px) + max(6px, 1vh))'
         }}
