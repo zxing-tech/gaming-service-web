@@ -25,6 +25,10 @@ import { GOAL_NET_CONFIG } from '../config/Net';
 import { AD_BOARD_CONFIG } from '../config/AdBoard';
 import { DEBUG_CONFIG } from '../config/Debug';
 import { COLORS } from '../config/Colors';
+import { SHOT_TARGET_CONFIG } from '../config/Shooting';
+
+/** Must match `TARGET_BOUNDS.z` in `ShotParameters` (not the ground at z=0) or the trail skews from the real shot. */
+const SWIPE_TRAIL_AIM_PLANE_Z = SHOT_TARGET_CONFIG.depth ?? GOAL_DEPTH;
 
 /**
 
@@ -36,6 +40,7 @@ export interface DebugVisualizerConfig {
   ball: Ball;
   goal: Goal;
   inputController: InputController;
+  canvas: HTMLCanvasElement;
 }
 
 /**
@@ -44,6 +49,7 @@ export interface DebugVisualizerConfig {
 export class DebugVisualizer {
   private readonly scene: THREE.Scene;
   private readonly camera: THREE.PerspectiveCamera;
+  private readonly canvas: HTMLCanvasElement;
   private readonly world: CANNON.World;
   private readonly ball: Ball;
   private readonly goal: Goal;
@@ -80,6 +86,8 @@ export class DebugVisualizer {
   private readonly tempAxisY = new THREE.Vector3();
   private readonly tempAxisZ = new THREE.Vector3();
 
+  private readonly ballTrailAnchor = new THREE.Vector3();
+
   constructor(config: DebugVisualizerConfig) {
     this.scene = config.scene;
     this.camera = config.camera;
@@ -87,7 +95,7 @@ export class DebugVisualizer {
     this.ball = config.ball;
     this.goal = config.goal;
     this.inputController = config.inputController;
-    this.inputController = config.inputController;
+    this.canvas = config.canvas;
 
 
     this.ballColliderMesh = this.createBallColliderMesh();
@@ -106,7 +114,7 @@ export class DebugVisualizer {
       opacity: DEBUG_CONFIG.trajectory.opacity,
       worldUnits: true
     });
-    this.trajectoryMaterial.resolution.set(window.innerWidth, window.innerHeight);
+    this.trajectoryMaterial.resolution.set(this.canvas.clientWidth, this.canvas.clientHeight);
     this.trajectoryMaterial.needsUpdate = true;
     this.trajectoryLine = new Line2(this.trajectoryGeometry, this.trajectoryMaterial);
     this.trajectoryLine.computeLineDistances();
@@ -116,15 +124,15 @@ export class DebugVisualizer {
 
     this.swipeDebugGeometry = new LineGeometry();
     this.swipeDebugMaterial = new LineMaterial({
-      color: COLORS.debug.swipeDebug,
-      linewidth: DEBUG_CONFIG.swipeDebug.lineWidth,
+      color: COLORS.game.swipeTrail,
+      linewidth: DEBUG_CONFIG.swipeTrail.lineWidth,
       transparent: true,
-      opacity: DEBUG_CONFIG.swipeDebug.opacity,
+      opacity: DEBUG_CONFIG.swipeTrail.opacity,
       worldUnits: true,
       depthTest: false,
       depthWrite: false
     });
-    this.swipeDebugMaterial.resolution.set(window.innerWidth, window.innerHeight);
+    this.swipeDebugMaterial.resolution.set(this.canvas.clientWidth, this.canvas.clientHeight);
     this.swipeDebugLine = new Line2(this.swipeDebugGeometry, this.swipeDebugMaterial);
     this.swipeDebugLine.visible = false;
     this.swipeDebugLine.renderOrder = DEBUG_CONFIG.renderOrder.swipeDebugLine;
@@ -421,10 +429,9 @@ export class DebugVisualizer {
     this.goalColliderGroup.visible = visible;
     this.adBoardColliderGroup.visible = visible;
     this.trajectoryLine.visible = visible;
-    this.trajectoryLine.visible = visible;
     this.targetMarker.visible = visible && this.targetMarker.visible;
     const hasSwipe = this.inputController.getLastSwipe() !== null;
-    this.swipeDebugLine.visible = visible && hasSwipe;
+    // Swipe ribbon is player-facing; visibility is driven by `updateSwipeDebugLine`, not debug mode.
     this.swipePointMarkers.forEach((marker) => {
       marker.visible = visible && hasSwipe;
     });
@@ -503,24 +510,10 @@ export class DebugVisualizer {
 
    */
   public updateSwipeDebugLine(): void {
-    if (!this.debugMode) {
-      return;
-    }
-
-    const lastSwipe = this.inputController.getLastSwipe();
-    if (!lastSwipe) {
-      this.swipeDebugLine.visible = false;
-      this.swipePointMarkers.forEach((marker) => {
-        marker.visible = false;
-      });
-      this.swipePointLabels.forEach((label) => {
-        label.style.display = 'none';
-      });
-      return;
-    }
-
-
-    const worldPositions = this.inputController.getLastSwipeWorldPositions(this.camera, 0);
+    const worldPositions = this.inputController.getSwipeVisualizationWorldPositions(
+      this.camera,
+      SWIPE_TRAIL_AIM_PLANE_Z
+    );
 
     if (!worldPositions || worldPositions.length < 2) {
       this.swipeDebugLine.visible = false;
@@ -533,9 +526,37 @@ export class DebugVisualizer {
       return;
     }
 
+    this.ballTrailAnchor.set(
+      this.ball.body.position.x,
+      this.ball.body.position.y,
+      this.ball.body.position.z
+    );
+
+    const controlPoints: THREE.Vector3[] = [this.ballTrailAnchor];
+    for (let i = 1; i < worldPositions.length; i++) {
+      controlPoints.push(worldPositions[i]);
+    }
+
+    const cfg = DEBUG_CONFIG.swipeTrail;
+    const speedPxPerMs = this.inputController.getSwipeSpeedPxPerMs();
+    const useRawPolyline =
+      speedPxPerMs >= cfg.fastSwipePxPerMs ||
+      controlPoints.length >= cfg.rawPolylineMinControlPoints;
+
+    let ribbonPoints: THREE.Vector3[];
+    if (useRawPolyline) {
+      ribbonPoints = controlPoints;
+    } else {
+      const curve = new THREE.CatmullRomCurve3(controlPoints);
+      const divisions = Math.min(
+        cfg.catmullMaxDivisions,
+        Math.max(cfg.catmullMinDivisions, controlPoints.length * 12)
+      );
+      ribbonPoints = curve.getPoints(divisions);
+    }
 
     const positions: number[] = [];
-    for (const pos of worldPositions) {
+    for (const pos of ribbonPoints) {
       positions.push(pos.x, pos.y, pos.z);
     }
 
@@ -544,27 +565,33 @@ export class DebugVisualizer {
     this.swipeDebugGeometry.computeBoundingSphere();
     this.swipeDebugLine.visible = true;
 
+    if (!this.debugMode) {
+      this.swipePointMarkers.forEach((marker) => {
+        marker.visible = false;
+      });
+      this.swipePointLabels.forEach((label) => {
+        label.style.display = 'none';
+      });
+      return;
+    }
 
     const tempVector = new THREE.Vector3();
     worldPositions.forEach((pos, i) => {
       if (i < this.swipePointMarkers.length) {
-
         this.swipePointMarkers[i].position.copy(pos);
         this.swipePointMarkers[i].visible = true;
-
 
         tempVector.copy(pos);
         tempVector.project(this.camera);
 
-        const x = (tempVector.x * 0.5 + 0.5) * window.innerWidth;
-        const y = (tempVector.y * -0.5 + 0.5) * window.innerHeight;
+        const x = (tempVector.x * 0.5 + 0.5) * this.canvas.clientWidth;
+        const y = (tempVector.y * -0.5 + 0.5) * this.canvas.clientHeight;
 
         this.swipePointLabels[i].style.left = `${x}px`;
         this.swipePointLabels[i].style.top = `${y}px`;
         this.swipePointLabels[i].style.display = 'block';
       }
     });
-
 
     for (let i = worldPositions.length; i < this.swipePointMarkers.length; i++) {
       this.swipePointMarkers[i].visible = false;

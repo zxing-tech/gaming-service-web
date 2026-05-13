@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { TouchGuide } from '@/components/hud/TouchGuide';
 import { ShotInfoHud } from '@/components/hud/ShotInfoHud';
 import { ScoreDisplay } from '@/components/hud/ScoreDisplay';
-import { TermsNotice } from '@/components/hud/TermsNotice';
+import { TierChangeHud } from '@/components/hud/TierChangeHud';
+import { GoalCelebration } from '@/components/hud/GoalCelebration';
 import { LoadingScreen } from './components/screens/LoadingScreen';
 import { PauseButton } from './components/hud/PauseButton';
 import { PauseModal } from './components/modals/PauseModal';
@@ -47,8 +48,9 @@ export default function HomePage() {
       <div id="ui" className="pointer-events-none">
         <TouchGuide />
         <ShotInfoHud />
+        <TierChangeHud />
         <ScoreDisplay />
-        <TermsNotice />
+        <GoalCelebration />
         <PauseButton />
         
         <PauseModal />
@@ -58,7 +60,12 @@ export default function HomePage() {
       <Suspense>
         <GameContent />
       </Suspense>
-      <Toaster />
+      <Toaster
+        position="top-center"
+        containerStyle={{
+          top: 'calc(10px + env(safe-area-inset-top, 0px))'
+        }}
+      />
     </div>
   );
 }

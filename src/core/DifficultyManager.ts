@@ -85,7 +85,14 @@ export class DifficultyManager {
     if (forceRefresh || levelChanged) {
       const goalkeeperConfig: ObstacleInstanceConfig = {
         ...this.goalkeeperConfig,
-        behavior: { type: 'static' },
+        // Move keeper collider on X so physics can actually block shots.
+        behavior: {
+          type: 'patrol',
+          axis: 'x',
+          range: [...tierConfig.keeperPatrolRange],
+          speed: tierConfig.keeperPatrolSpeed,
+          waveform: 'sine',
+        },
       };
 
       const configs: ObstacleInstanceConfig[] = [goalkeeperConfig];

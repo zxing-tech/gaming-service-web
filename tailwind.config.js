@@ -36,15 +36,15 @@ export default {
         },
         scoreboardPulse: {
           '0%': {
-            transform: 'translate(-50%, 0) scale(1)',
+            transform: 'scale(1)',
             'box-shadow': '0 12px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.3)'
           },
           '50%': {
-            transform: 'translate(-50%, 0) scale(1.08)',
+            transform: 'scale(1.03)',
             'box-shadow': '0 14px 30px rgba(0, 0, 0, 0.5), inset 0 2px 6px rgba(255, 255, 255, 0.08)'
           },
           '100%': {
-            transform: 'translate(-50%, 0) scale(1)',
+            transform: 'scale(1)',
             'box-shadow': '0 12px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.3)'
           }
         },

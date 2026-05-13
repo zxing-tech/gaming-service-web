@@ -16,10 +16,17 @@ export interface SwipeData {
 /**
 
  */
+const SWIPE_LINE_POST_RELEASE_MS = 1200;
+
+/** Ignore duplicate samples only when the finger barely moved (sub-pixel). */
+const MIN_MOVE_DIST_SQ = 0.36; // 0.6px — keeps dense paths on fast swipes; drops noise
+
 export class SwipeTracker {
   private isTracking = false;
   private currentSwipe: SwipePoint[] = [];
   private lastSwipe: SwipeData | null = null;
+  private lastSwipeDisplayDeadline = 0;
+  private activePointerId: number | null = null;
 
   private readonly canvas: HTMLCanvasElement;
   private readonly maxPoints: number;
@@ -47,6 +54,13 @@ export class SwipeTracker {
     this.isTracking = true;
     this.currentSwipe = [];
 
+    try {
+      this.canvas.setPointerCapture(e.pointerId);
+      this.activePointerId = e.pointerId;
+    } catch {
+      this.activePointerId = null;
+    }
+
     const point = this.createPoint(e);
     this.currentSwipe.push(point);
   }
@@ -55,37 +69,54 @@ export class SwipeTracker {
     if (!this.isTracking) return;
     e.preventDefault();
 
-    const point = this.createPoint(e);
+    // High-frequency / fast strokes: the UA may coalesce moves — replay every sample
+    // so the ribbon matches the finger (see PointerEvent.getCoalescedEvents).
+    const coalesced =
+      typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [];
+    const toProcess: PointerEvent[] = coalesced.length > 0 ? coalesced : [e];
 
+    for (const ev of toProcess) {
+      this.tryAppendSwipePoint(this.createPoint(ev));
+    }
+  }
 
+  private tryAppendSwipePoint(point: SwipePoint): void {
     const lastPoint = this.currentSwipe[this.currentSwipe.length - 1];
-    if (lastPoint) {
-      const timeDiff = point.timestamp - lastPoint.timestamp;
-      const distSq = (point.x - lastPoint.x) ** 2 + (point.y - lastPoint.y) ** 2;
+    if (!lastPoint) {
+      this.currentSwipe.push(point);
+      return;
+    }
 
-
-      if (timeDiff < 1 && distSq < 1) {
-        return;
-      }
+    const distSq = (point.x - lastPoint.x) ** 2 + (point.y - lastPoint.y) ** 2;
+    if (distSq < MIN_MOVE_DIST_SQ) {
+      return;
     }
 
     this.currentSwipe.push(point);
+  }
+
+  private releasePointerCaptureIfNeeded(): void {
+    if (this.activePointerId == null) return;
+    try {
+      this.canvas.releasePointerCapture(this.activePointerId);
+    } catch {
+      /* already released */
+    }
+    this.activePointerId = null;
   }
 
   private handlePointerUp(e: PointerEvent) {
     if (!this.isTracking) return;
     e.preventDefault();
 
-    const point = this.createPoint(e);
+    this.releasePointerCaptureIfNeeded();
 
+    const point = this.createPoint(e);
 
     const lastPoint = this.currentSwipe[this.currentSwipe.length - 1];
     if (lastPoint) {
-      const timeDiff = point.timestamp - lastPoint.timestamp;
       const distSq = (point.x - lastPoint.x) ** 2 + (point.y - lastPoint.y) ** 2;
-
-
-      if (timeDiff >= 1 || distSq >= 1) {
+      if (distSq >= MIN_MOVE_DIST_SQ) {
         this.currentSwipe.push(point);
       }
     } else {
@@ -96,6 +127,7 @@ export class SwipeTracker {
   }
 
   private handlePointerCancel() {
+    this.releasePointerCaptureIfNeeded();
     this.isTracking = false;
     this.currentSwipe = [];
   }
@@ -129,7 +161,7 @@ export class SwipeTracker {
       endTime,
       duration: endTime - startTime
     };
-
+    this.lastSwipeDisplayDeadline = performance.now() + SWIPE_LINE_POST_RELEASE_MS;
 
     // console.log('Swipe captured:', {
     //   totalPoints: this.currentSwipe.length,
@@ -223,6 +255,15 @@ export class SwipeTracker {
   /**
 
    */
+  /**
+   * Stops showing the completed swipe ribbon (e.g. after a goal or round reset)
+   * so it doesn’t linger over the celebration.
+   */
+  public clearSwipeTrailDisplay(): void {
+    this.lastSwipe = null;
+    this.lastSwipeDisplayDeadline = 0;
+  }
+
   public getLastSwipe(): SwipeData | null {
     return this.lastSwipe;
   }
@@ -234,25 +275,48 @@ export class SwipeTracker {
    */
   public getLastSwipeWorldPositions(camera: THREE.Camera, targetZ = 0): THREE.Vector3[] | null {
     if (!this.lastSwipe) return null;
+    return this.pointsToWorldPositions(this.lastSwipe.points, camera, targetZ);
+  }
 
+  /**
+   * Active swipe path while dragging, then the completed path briefly after release.
+   */
+  public getSwipeVisualizationWorldPositions(camera: THREE.Camera, targetZ = 0): THREE.Vector3[] | null {
+    if (this.isTracking) {
+      if (this.currentSwipe.length >= 2) {
+        return this.pointsToWorldPositions(this.currentSwipe, camera, targetZ);
+      }
+      return null;
+    }
+    if (
+      this.lastSwipe &&
+      this.lastSwipe.points.length >= 2 &&
+      performance.now() < this.lastSwipeDisplayDeadline
+    ) {
+      return this.pointsToWorldPositions(this.lastSwipe.points, camera, targetZ);
+    }
+    return null;
+  }
+
+  private pointsToWorldPositions(
+    points: SwipePoint[],
+    camera: THREE.Camera,
+    targetZ: number
+  ): THREE.Vector3[] {
     const worldPositions: THREE.Vector3[] = [];
     const rect = this.canvas.getBoundingClientRect();
     const canvasWidth = rect.width;
     const canvasHeight = rect.height;
 
-    for (const point of this.lastSwipe.points) {
-
+    for (const point of points) {
       const ndcX = (point.x / canvasWidth) * 2 - 1;
       const ndcY = -(point.y / canvasHeight) * 2 + 1;
-
 
       const vector = new THREE.Vector3(ndcX, ndcY, 0.5);
       vector.unproject(camera);
 
-
       const cameraPosition = camera.position.clone();
       const direction = vector.sub(cameraPosition).normalize();
-
 
       const distance = (targetZ - cameraPosition.z) / direction.z;
       const worldPoint = cameraPosition.clone().add(direction.multiplyScalar(distance));
@@ -271,9 +335,33 @@ export class SwipeTracker {
   }
 
   /**
+   * Approximate finger speed along the stroke (canvas px / ms). Used to tighten the aim ribbon on fast swipes.
+   */
+  public getSwipeSpeedPxPerMs(): number {
+    const pts =
+      this.isTracking && this.currentSwipe.length >= 2
+        ? this.currentSwipe
+        : this.lastSwipe && this.lastSwipe.points.length >= 2
+          ? this.lastSwipe.points
+          : null;
+    if (!pts || pts.length < 2) return 0;
+
+    let len = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const dx = pts[i].x - pts[i - 1].x;
+      const dy = pts[i].y - pts[i - 1].y;
+      len += Math.sqrt(dx * dx + dy * dy);
+    }
+    const dt = pts[pts.length - 1].timestamp - pts[0].timestamp;
+    if (dt <= 0) return 0;
+    return len / dt;
+  }
+
+  /**
 
    */
   public destroy() {
+    this.releasePointerCaptureIfNeeded();
     this.canvas.removeEventListener('pointerdown', this.handlePointerDownBound);
     this.canvas.removeEventListener('pointermove', this.handlePointerMoveBound);
     this.canvas.removeEventListener('pointerup', this.handlePointerUpBound);

@@ -3,6 +3,7 @@ import { AUDIO_CONFIG, type SoundKey, type MusicTrack } from '../config/Audio';
 export class AudioManager {
   private context: AudioContext | null = null;
   private loadingPromise: Promise<void> | null = null;
+  private readonly audioFetchTimeoutMs = 10000;
 
 
   private readonly soundBuffers = new Map<SoundKey, AudioBuffer>();
@@ -34,9 +35,7 @@ export class AudioManager {
       const soundEntries = await Promise.all(
         Object.entries(AUDIO_CONFIG.sounds).map(async ([key, config]) => {
           try {
-            const response = await fetch(config.url);
-            const arrayBuffer = await response.arrayBuffer();
-            const buffer = await this.getContext().decodeAudioData(arrayBuffer.slice(0));
+            const buffer = await this.fetchAndDecodeAudio(config.url);
             return [key as SoundKey, buffer] as const;
           } catch (error) {
             console.warn(`Failed to load sound "${key}"`, error);
@@ -51,14 +50,16 @@ export class AudioManager {
           this.soundBuffers.set(key, buffer);
         });
 
-      await Promise.all(
-        (Object.keys(AUDIO_CONFIG.music) as MusicTrack[]).map((track) =>
-          this.loadMusic(track)
-        )
-      );
+      // Music loads lazily in ensureMusicLoaded when playMusic runs (faster first paint).
 
     })();
     return this.loadingPromise;
+  }
+
+  private async ensureMusicLoaded(track: MusicTrack): Promise<void> {
+    const existing = this.musicBuffers.get(track);
+    if (existing && existing.length > 0) return;
+    await this.loadMusic(track);
   }
 
   private async loadMusic(track: MusicTrack): Promise<void> {
@@ -66,15 +67,28 @@ export class AudioManager {
     try {
       const buffers = await Promise.all(
         config.urls.map(async (url) => {
-          const response = await fetch(url);
-          const arrayBuffer = await response.arrayBuffer();
-          return await this.getContext().decodeAudioData(arrayBuffer.slice(0));
+          return await this.fetchAndDecodeAudio(url);
         })
       );
       this.musicBuffers.set(track, buffers);
       console.log(`Music track "${track}" loaded successfully`);
     } catch (error) {
       console.warn(`Failed to load music track "${track}"`, error);
+    }
+  }
+
+  private async fetchAndDecodeAudio(url: string): Promise<AudioBuffer> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.audioFetchTimeoutMs);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) {
+        throw new Error(`Audio request failed (${response.status}) for ${url}`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      return await this.getContext().decodeAudioData(arrayBuffer.slice(0));
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -172,6 +186,7 @@ export class AudioManager {
     await this.ensureContextRunning();
 
     const config = AUDIO_CONFIG.music[track];
+    await this.ensureMusicLoaded(track);
     const buffers = this.musicBuffers.get(track);
     if (!buffers || buffers.length === 0) {
       console.warn(`Music track "${track}" not loaded`);

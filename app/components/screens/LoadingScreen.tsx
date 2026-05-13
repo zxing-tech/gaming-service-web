@@ -138,7 +138,7 @@ export function LoadingScreen() {
 
   return (
     <div 
-      className={`loading-screen fixed inset-0 z-[20] flex w-screen h-[100dvh] flex-col items-center justify-start pt-[18vh] transition-opacity duration-500 ease-out text-white overflow-hidden ${stage === 'hiding' ? 'pointer-events-none' : ''}`}
+      className={`loading-screen fixed inset-0 z-[20] flex w-full h-[100dvh] flex-col items-center justify-start pt-[18vh] transition-opacity duration-500 ease-out text-white overflow-hidden ${stage === 'hiding' ? 'pointer-events-none' : ''}`}
       style={{
         opacity: containerOpacity,
         backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.62)), url("${loadingBackgroundUrl}")`,

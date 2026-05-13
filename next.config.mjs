@@ -1,10 +1,13 @@
 /** @type {import('next').NextConfig} */
+const isGithubPages = process.env.DEPLOY_TARGET === 'gh-pages';
+
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: [],
   output: 'export',
-  basePath: process.env.NODE_ENV === 'production' ? '/snapshoot' : '',
-  assetPrefix: process.env.NODE_ENV === 'production' ? '/snapshoot' : '',
+  // Netlify serves from root (/). Keep subpath only for GitHub Pages.
+  basePath: isGithubPages ? '/snapshoot' : '',
+  assetPrefix: isGithubPages ? '/snapshoot' : '',
   images: {
     unoptimized: true,
   },

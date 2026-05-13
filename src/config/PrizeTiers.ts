@@ -3,6 +3,14 @@ import { DEFAULT_TIER_ID, type TierId } from './TierDifficulty';
 export interface PrizeTierConfig {
   tierId: TierId;
   tierName: string;
+  minScore: number;
+  maxScore: number | null;
+  prizePoolLabel: string;
+  rewardOptions: readonly {
+    code: string;
+    label: string;
+    weight: number;
+  }[];
   topPrizePoints: number;
   topPrizeCode: string;
   topPrizeLabel: string;
@@ -11,6 +19,7 @@ export interface PrizeTierConfig {
 export interface PrizeAwardResult {
   tierId: TierId;
   tierName: string;
+  prizePoolLabel: string;
   topPrizeReached: boolean;
   topPrizePoints: number;
   topPrizeCode: string;
@@ -23,23 +32,45 @@ export const PRIZE_TIER_CONFIGS: Record<TierId, PrizeTierConfig> = {
   1: {
     tierId: 1,
     tierName: 'Tier 1',
-    topPrizePoints: 8,
-    topPrizeCode: 'T1_TOP',
-    topPrizeLabel: 'Tier 1 Top Prize',
+    minScore: 0,
+    maxScore: 10,
+    prizePoolLabel: '10 GrabCoins',
+    rewardOptions: [
+      { code: 'TR1_10_GRABCOINS', label: '10 GrabCoins', weight: 1 }
+    ],
+    topPrizePoints: 10,
+    topPrizeCode: 'TR1_10_GRABCOINS',
+    topPrizeLabel: '10 GrabCoins',
   },
   2: {
     tierId: 2,
     tierName: 'Tier 2',
-    topPrizePoints: 10,
-    topPrizeCode: 'T2_TOP',
-    topPrizeLabel: 'Tier 2 Top Prize',
+    minScore: 11,
+    maxScore: 19,
+    prizePoolLabel: '50 GrabCoins or RM5 GrabFood voucher',
+    rewardOptions: [
+      // Show GrabCoins most of the time; voucher remains randomized and occasional.
+      { code: 'TR2_50_GRABCOINS', label: '50 GrabCoins', weight: 8 },
+      { code: 'TR2_RM5_GRABFOOD', label: 'RM5 GrabFood Voucher', weight: 2 }
+    ],
+    topPrizePoints: 19,
+    topPrizeCode: 'TR2_50_GRABCOINS',
+    topPrizeLabel: '50 GrabCoins',
   },
   3: {
     tierId: 3,
     tierName: 'Tier 3',
-    topPrizePoints: 12,
-    topPrizeCode: 'T3_TOP',
-    topPrizeLabel: 'Tier 3 Top Prize',
+    minScore: 20,
+    maxScore: null,
+    prizePoolLabel: '100 GrabCoins or RM15 GrabFood voucher',
+    rewardOptions: [
+      // Show GrabCoins most of the time; voucher remains randomized and occasional.
+      { code: 'TR3_100_GRABCOINS', label: '100 GrabCoins', weight: 8 },
+      { code: 'TR3_RM15_GRABFOOD', label: 'RM15 GrabFood Voucher', weight: 2 }
+    ],
+    topPrizePoints: 20,
+    topPrizeCode: 'TR3_100_GRABCOINS',
+    topPrizeLabel: '100 GrabCoins',
   },
 };
 
@@ -61,17 +92,41 @@ export function resolvePrizeTierConfig(inputTier: TierId | number | undefined | 
   return PRIZE_TIER_CONFIGS[DEFAULT_PRIZE_TIER_ID];
 }
 
+export function resolvePrizeTierByScore(finalScore: number): PrizeTierConfig {
+  if (finalScore >= 20) return PRIZE_TIER_CONFIGS[3];
+  if (finalScore >= 11) return PRIZE_TIER_CONFIGS[2];
+  return PRIZE_TIER_CONFIGS[1];
+}
+
 export function buildPrizeAwardResult(
   inputTier: TierId | number | undefined | null,
   finalScore: number
 ): PrizeAwardResult {
-  const config = resolvePrizeTierConfig(inputTier);
+  const config = resolvePrizeTierByScore(finalScore) ?? resolvePrizeTierConfig(inputTier);
+  const options = config.rewardOptions;
+  const totalWeight = options.reduce((sum, option) => sum + Math.max(0, option.weight), 0);
+  let picked = options[0];
+  if (totalWeight > 0) {
+    let roll = Math.random() * totalWeight;
+    for (const option of options) {
+      roll -= Math.max(0, option.weight);
+      if (roll <= 0) {
+        picked = option;
+        break;
+      }
+    }
+  }
+  const resolvedPicked = picked ?? {
+    code: config.topPrizeCode,
+    label: config.topPrizeLabel
+  };
   return {
     tierId: config.tierId,
     tierName: config.tierName,
-    topPrizeReached: finalScore >= config.topPrizePoints,
+    prizePoolLabel: config.prizePoolLabel,
+    topPrizeReached: true,
     topPrizePoints: config.topPrizePoints,
-    topPrizeCode: config.topPrizeCode,
-    topPrizeLabel: config.topPrizeLabel,
+    topPrizeCode: resolvedPicked.code,
+    topPrizeLabel: resolvedPicked.label,
   };
 }

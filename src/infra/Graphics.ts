@@ -8,7 +8,7 @@ export function createRenderer(canvas: HTMLCanvasElement): THREE.WebGLRenderer {
   });
 
 
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;

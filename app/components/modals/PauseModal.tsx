@@ -3,19 +3,19 @@
 import { useState } from 'react';
 import { useGameEvent } from '@/hooks/useGameEvent';
 import { gameEventBus } from '@/lib/gameEventBus';
-import { CustomizeView } from '@/components/views/CustomizeView';
 import { gameStateService } from '@/../src/core/GameStateService';
 import { showToast } from '@/lib/toast';
 import { TOSS_CONFIG } from '@/../src/config/TossConfig';
 import { isTossGameCenterAvailable } from '@/../src/utils/TossEnvironment';
 import { Modal, ModalHeader, ModalContent, ModalFooter } from '@/components/ui/Modal';
 import { StyledIconButton } from '@/components/common/StyledIconButton';
-import { Ranking, Palette, Gear, ArrowClockwise, Play } from '@phosphor-icons/react';
+import { Ranking, Gear, ArrowClockwise, Play } from '@phosphor-icons/react';
 import { type ElementType } from 'react';
 
 export function PauseModal() {
   const [isOpen, setIsOpen] = useState(false);
-  const [view, setView] = useState<'pause' | 'settings' | 'customize'>('pause');
+  const [view, setView] = useState<'pause' | 'settings'>('pause');
+  const [showTerms, setShowTerms] = useState(false);
   
   // Audio Settings State
   const [sfxEnabled, setSfxEnabled] = useState(true);
@@ -25,6 +25,7 @@ export function PauseModal() {
     if (event.show) {
       setIsOpen(true);
       setView('pause');
+      setShowTerms(false);
       // Load current audio settings
       const settings = gameStateService.getAudioSettings();
       setSfxEnabled(settings.sfxEnabled);
@@ -94,7 +95,6 @@ export function PauseModal() {
     switch (view) {
       case 'pause': return 'Paused';
       case 'settings': return 'Settings';
-      case 'customize': return 'Theme';
     }
   };
 
@@ -107,25 +107,40 @@ export function PauseModal() {
       
       <ModalContent centered={view === 'pause'}>
         {view === 'pause' && (
-          <div className="flex gap-6 w-full max-w-lg justify-center">
-            <StyledIconButton 
-              Icon={Ranking} 
-              label="Ranking" 
-              variant="ranking"
-              onClick={handleRanking}
-            />
-            <StyledIconButton 
-              Icon={Palette} 
-              label="Theme" 
-              variant="theme"
-              onClick={() => setView('customize')} 
-            />
-            <StyledIconButton 
-              Icon={Gear} 
-              label="Settings" 
-              variant="settings"
-              onClick={() => setView('settings')} 
-            />
+          <div className="w-full max-w-2xl flex flex-col items-center gap-5">
+            <div className="flex gap-6 w-full max-w-lg justify-center">
+              <StyledIconButton 
+                Icon={Ranking} 
+                label="Ranking" 
+                variant="ranking"
+                onClick={handleRanking}
+              />
+              <StyledIconButton 
+                Icon={Gear} 
+                label="Settings" 
+                variant="settings"
+                onClick={() => setView('settings')} 
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowTerms((prev) => !prev)}
+              className="pointer-events-auto rounded-full border border-white/35 bg-white/15 px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(0,0,0,0.3)] transition-colors hover:bg-white/20"
+            >
+              Terms & Conditions
+            </button>
+            {showTerms && (
+              <div className="w-full max-w-xl rounded-2xl border border-white/20 bg-black/30 px-4 py-3 text-left text-xs leading-relaxed text-white/90 shadow-[0_8px_22px_rgba(0,0,0,0.3)]">
+                <div className="mb-2 text-sm font-bold text-white">Terms & Conditions</div>
+                <p>1. The game is played with 3 lives. Each miss costs 1 life.</p>
+                <p>2. Score as many goals as possible with available lives. Session score totals all goals across the 3 lives.</p>
+                <p>3. The game ends automatically when top prize points are achieved.</p>
+                <p>4. Difficulty is fixed at standard for the full session.</p>
+                <p>5. If idle for 1 minute, the game auto-terminates and current score is awarded as-is.</p>
+                <p>6. In the event of dispute, resolution is at Grab&apos;s discretion.</p>
+                <p>7. Terms & Conditions must be displayed on Grab first and can also be shown on this platform.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -141,10 +156,6 @@ export function PauseModal() {
               onChange={changeMasterVolume} 
             />
           </div>
-        )}
-
-        {view === 'customize' && (
-          <CustomizeView />
         )}
       </ModalContent>
 

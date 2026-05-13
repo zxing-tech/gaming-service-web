@@ -21,12 +21,19 @@ export type GameEvent =
 
   | { type: 'SHOW_TOUCH_GUIDE'; show: boolean }
   | { type: 'SHOW_PAUSE_MODAL'; show: boolean }
-  | { type: 'SHOW_GAME_OVER_MODAL'; score: number }
+  | {
+    type: 'SHOW_GAME_OVER_MODAL';
+    score: number;
+    points?: number;
+    tokenId?: string;
+    redeemedReward?: string;
+  }
   | {
     type: 'PRIZE_AWARDED';
     score: number;
     tierId: 1 | 2 | 3;
     tierName: string;
+    prizePoolLabel?: string;
     topPrizeReached: boolean;
     topPrizePoints: number;
     topPrizeCode: string;
@@ -49,7 +56,15 @@ export type GameEvent =
 
 
   | { type: 'SHOT_INFO_UPDATED'; data: ShotInfo }
+  | { type: 'TIER_CHANGED'; tierId: 1 | 2 | 3; difficultyName: 'Easy' | 'Intermediate' | 'Hard' }
+  | {
+    type: 'TIER_TIMER_UPDATED';
+    tierId: 1 | 2 | 3;
+    remainingMs: number;
+    totalMs: number;
+  }
   | { type: 'DEBUG_MODE_CHANGED'; enabled: boolean }
+  | { type: 'CINEMATIC_CAMERA_CHANGED'; active: boolean }
 
 
   | { type: 'THEME_CHANGED'; themeName: string }

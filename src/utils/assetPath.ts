@@ -1,12 +1,10 @@
 /**
- * Asset path helper for GitHub Pages deployment
- * Automatically adds basePath prefix in production
+ * Asset path helper for static deployments.
+ * Use NEXT_PUBLIC_BASE_PATH (e.g. "/snapshoot") when deploying under a subpath.
+ * Keep it empty for root-hosted deployments like Netlify Drop.
  */
-
-// Get basePath from environment or use default
-const basePath = typeof process !== 'undefined' && process.env.NODE_ENV === 'production' 
-  ? '/snapshoot' 
-  : '';
+const basePath =
+  typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_BASE_PATH || '' : '';
 
 /**
  * Convert relative asset path to absolute path with basePath

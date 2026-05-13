@@ -48,7 +48,7 @@ export class InputController {
     this.callbacks = callbacks;
 
 
-    this.swipeTracker = new SwipeTracker(canvas, 5);
+    this.swipeTracker = new SwipeTracker(canvas, 24);
 
 
     this.attachEventListeners();
@@ -115,6 +115,19 @@ export class InputController {
    */
   getLastSwipeWorldPositions(camera: THREE.PerspectiveCamera, z: number): THREE.Vector3[] | null {
     return this.swipeTracker.getLastSwipeWorldPositions(camera, z);
+  }
+
+  getSwipeVisualizationWorldPositions(camera: THREE.PerspectiveCamera, z: number): THREE.Vector3[] | null {
+    return this.swipeTracker.getSwipeVisualizationWorldPositions(camera, z);
+  }
+
+  /** Hide ribbon immediately — call after goal / reset so post-shot fade doesn’t overlap gameplay. */
+  clearSwipeTrailDisplay(): void {
+    this.swipeTracker.clearSwipeTrailDisplay();
+  }
+
+  getSwipeSpeedPxPerMs(): number {
+    return this.swipeTracker.getSwipeSpeedPxPerMs();
   }
 
   /**

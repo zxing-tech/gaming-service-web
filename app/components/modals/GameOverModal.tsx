@@ -3,13 +3,12 @@
 import { useState } from 'react';
 import { useGameEvent } from '@/hooks/useGameEvent';
 import { gameEventBus } from '@/lib/gameEventBus';
-import { CustomizeView } from '@/components/views/CustomizeView';
 import { showToast } from '@/lib/toast';
 import { TOSS_CONFIG } from '@/../src/config/TossConfig';
 import { isTossApp, isTossGameCenterAvailable } from '@/../src/utils/TossEnvironment';
 import { Modal, ModalHeader, ModalContent, ModalFooter } from '@/components/ui/Modal';
 import { StyledIconButton } from '@/components/common/StyledIconButton';
-import { ArrowClockwise, Ranking, Palette, ShareNetwork } from '@phosphor-icons/react';
+import { ArrowClockwise, Ranking, ShareNetwork } from '@phosphor-icons/react';
 
 const SHARE_MESSAGES = [
   'SnapShoot ⚽️ {score} points! Think you can beat me?\n\nTry now 👇',
@@ -27,12 +26,16 @@ export function getRandomShareMessage(score: number): string {
 export function GameOverModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [score, setScore] = useState(0);
-  const [view, setView] = useState<'gameOver' | 'customize'>('gameOver');
+  const [points, setPoints] = useState(0);
+  const [tokenId, setTokenId] = useState('-');
+  const [redeemedReward, setRedeemedReward] = useState('Not Redeemed');
 
   useGameEvent('SHOW_GAME_OVER_MODAL', (event) => {
     setIsOpen(true);
     setScore(event.score);
-    setView('gameOver');
+    setPoints(event.points ?? event.score);
+    setTokenId(event.tokenId ?? '-');
+    setRedeemedReward(event.redeemedReward ?? 'Not Redeemed');
   });
 
   const handleRestart = () => {
@@ -128,34 +131,40 @@ export function GameOverModal() {
   return (
     <Modal isOpen={isOpen} closeOnEsc={false} closeOnBackdrop={false}>
       <ModalHeader 
-        title={view === 'gameOver' ? 'GAME OVER' : 'Theme'}
-        onBack={view !== 'gameOver' ? () => setView('gameOver') : undefined}
+        title="GAME OVER"
       />
       
-      <ModalContent centered={false}>
-        {view === 'gameOver' && (
+      <ModalContent centered={false} className="px-5 sm:px-6">
           <>
             {/* Score Display */}
-            <div className="flex flex-col items-center gap-2 py-8 animate-fade-in">
-              <div className="text-white/70 font-semibold text-sm uppercase tracking-wider">Final Score</div>
-              <div className="text-white font-russo font-black tracking-tight drop-shadow-lg text-[clamp(48px,10vw,72px)]">
+            <div className="flex flex-col items-center gap-1 py-5 animate-fade-in">
+              <div className="text-white/70 font-semibold text-[11px] uppercase tracking-[0.22em]">Final Score</div>
+              <div className="text-white font-russo font-black tracking-tight drop-shadow-lg text-[clamp(52px,11vw,74px)] leading-none">
                 {score.toLocaleString()}
               </div>
             </div>
 
+            <div className="w-full max-w-xl rounded-2xl border border-white/20 bg-[linear-gradient(180deg,rgba(255,255,255,0.14)_0%,rgba(255,255,255,0.06)_100%)] px-4 py-3.5 text-white/95 shadow-[0_10px_26px_rgba(0,0,0,0.35)] backdrop-blur-md">
+              <div className="mb-3 text-[13px] font-extrabold uppercase tracking-[0.1em] text-white">Reward Summary</div>
+              <div className="rounded-xl border border-white/15 bg-black/25 px-3 py-2.5">
+                <div className="grid grid-cols-[98px_1fr] items-center gap-x-3 gap-y-2 text-[15px] leading-tight sm:grid-cols-[118px_1fr]">
+                  <div className="text-white/65 text-[13px] font-semibold">Token ID</div>
+                  <div className="font-mono text-[12px] sm:text-[13px] break-all">{tokenId}</div>
+                  <div className="text-white/65 text-[13px] font-semibold">Points</div>
+                  <div className="font-extrabold text-[20px]">{points.toLocaleString()}</div>
+                  <div className="text-white/65 text-[13px] font-semibold">Redeemed Reward</div>
+                  <div className="font-semibold text-[14px] sm:text-[15px]">{redeemedReward}</div>
+                </div>
+              </div>
+            </div>
+
             {/* Top Buttons */}
-            <div className="flex gap-6 w-full max-w-lg justify-center">
+            <div className="mt-4 flex gap-5 w-full max-w-lg justify-center">
               <StyledIconButton 
                 Icon={Ranking} 
                 label="Ranking" 
                 variant="ranking"
                 onClick={handleRanking} 
-              />
-              <StyledIconButton 
-                Icon={Palette} 
-                label="Theme" 
-                variant="theme"
-                onClick={() => setView('customize')} 
               />
               <StyledIconButton 
                 Icon={ShareNetwork} 
@@ -165,15 +174,9 @@ export function GameOverModal() {
               />
             </div>
           </>
-        )}
-
-        {view === 'customize' && (
-          <CustomizeView />
-        )}
       </ModalContent>
 
-      {view === 'gameOver' && (
-        <ModalFooter>
+      <ModalFooter>
           <button
             onClick={handleRestart}
             className="
@@ -197,7 +200,6 @@ export function GameOverModal() {
             </div>
           </button>
         </ModalFooter>
-      )}
     </Modal>
   );
 }

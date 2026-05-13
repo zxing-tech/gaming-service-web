@@ -6,7 +6,9 @@ export const MIXAMO_KEEPER_FBX_BASE = getAssetPath('/assets/models/Goalkeeper Bo
 /** Second Body Block variant — merged on the same rig; build keeps exactly one clip per file (two animations total). */
 export const MIXAMO_KEEPER_FBX_EXTRA = [
   getAssetPath('/assets/models/Goalkeeper Body Block (2).fbx'),
-  getAssetPath('/assets/models/Goalkeeper Idle.fbx')
+  getAssetPath('/assets/models/Goalkeeper Idle.fbx'),
+  getAssetPath('/assets/models/Goalkeeper Diving Save (3).fbx'),
+  getAssetPath('/assets/models/Goalkeeper Diving Save (4).fbx')
 ] as const;
 
 /** Plane size in world units — sized to fit inside GOAL_HEIGHT (2) and GOAL_WIDTH (3) opening. */
@@ -196,7 +198,8 @@ export const OBSTACLE_BLUEPRINTS: Record<string, ObstacleBlueprint> = {
     },
     collider: {
       shape: 'box',
-      size: { x: 1.26, y: 1.62, z: 0.34 }
+      // Torso-sized only — not post-to-post; strict shot slab further narrows to the dive side.
+      size: { x: 0.78, y: 1.48, z: 0.72 }
     },
     defaultTransform: {
       position: { y: 0 }

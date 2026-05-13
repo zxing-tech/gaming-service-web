@@ -36,11 +36,26 @@ function basenameFromAssetUrl(url: string): string {
 function classifyKeeperClip(bundleLabel: string, clipName: string): 'idle' | 'dive' {
   const n = `${bundleLabel} ${clipName}`.toLowerCase();
   if (n.includes('body block')) return 'idle';
+  if (n.includes('goalkeeper idle')) return 'idle';
   if (n.includes('diving save')) return 'dive';
   if (n.includes('diving')) return 'dive';
   if (/\bdive\b/.test(n)) return 'dive';
   if (/\bsave\b/.test(n) && !n.includes('idle')) return 'dive';
   return 'idle';
+}
+
+/** Initial ball speed (m/s) above this → prefer full-extension diving save clips. */
+const KEEPER_FAST_SHOT_SPEED = 30;
+const KEEPER_DIVE_PICK_WHEN_FAST = 1.0;
+const KEEPER_DIVE_PICK_WHEN_SLOW = 0.72;
+
+/** Keeps gameplay/collision side aligned with perceived dive side on screen. */
+const KEEPER_GAMEPLAY_SIDE_SIGN = -1;
+function inferDiveSideFromClipName(name: string): -1 | 0 | 1 {
+  const n = name.toLowerCase();
+  if (n.includes('left') || n.includes('leftward')) return -1;
+  if (n.includes('right') || n.includes('rightward')) return 1;
+  return 0;
 }
 
 function toVector3(init?: { x?: number; y?: number; z?: number }, defaultValue = 0): THREE.Vector3 {
@@ -216,6 +231,19 @@ export class Obstacle {
   /** Keeper can move laterally only after ball enters reaction zone. */
   private keeperMovementArmed = false;
   private keeperMixerUsesFinishedHook = false;
+  /** Predicted target X from current shot; null when unknown. */
+  private keeperPredictedTargetX: number | null = null;
+  /** Dive side commitment for current shot: -1 left, +1 right, 0 center/unknown. */
+  private keeperCommittedDiveSide: -1 | 0 | 1 = 0;
+  /** Ball speed at release (m/s); used to pick diving vs body-block save animation. */
+  private keeperIncomingShotSpeed = 0;
+  /** Short burst window where keeper snaps to intercept the shot. */
+  private keeperBurstUntilMs = 0;
+  private keeperGloves: THREE.Object3D[] = [];
+  /** Baseline keeperWall box half extents; used to restore collider between rounds. */
+  private keeperDefaultHitHalfExtents: CANNON.Vec3 | null = null;
+  /** Wireframe helper for keeper hitbox (kept in sync when hitbox rebuilds). */
+  private keeperColliderDebugMesh: THREE.Mesh | null = null;
 
   constructor(
     scene: THREE.Scene,
@@ -419,6 +447,9 @@ export class Obstacle {
           if (child instanceof THREE.Mesh) {
             child.castShadow = false;
             child.receiveShadow = false;
+            // Skinned mesh bounding box only reflects the bind pose. Disable culling so dives/
+            // saves don't make the keeper vanish when the camera zooms in close on follow-ball.
+            child.frustumCulled = false;
             if (child.material instanceof THREE.MeshStandardMaterial && child.material.map) {
               child.material.map.colorSpace = THREE.SRGBColorSpace;
             }
@@ -426,6 +457,7 @@ export class Obstacle {
         });
         group.add(primary);
         this.alignKeeperFeetToGround(primary, group);
+        this.attachKeeperGloves(primary);
         this.keeperAnimRoot = primary;
         this.keeperMixer = new THREE.AnimationMixer(primary);
 
@@ -479,9 +511,69 @@ export class Obstacle {
     primary.position.y += CLEARANCE;
   }
 
+  private attachKeeperGloves(root: THREE.Object3D): void {
+    if (this.keeperGloves.length > 0) {
+      this.keeperGloves.forEach((glove) => glove.removeFromParent());
+      this.keeperGloves = [];
+    }
+
+    const gloveMaterial = new THREE.MeshStandardMaterial({
+      color: 0xf7f9ff,
+      roughness: 0.35,
+      metalness: 0.05
+    });
+    const gloveGeometry = new THREE.SphereGeometry(0.08, 12, 10);
+
+    const leftBone = this.findKeeperHandBone(root, ['lefthand', 'left hand', 'mixamoriglefthand']);
+    const rightBone = this.findKeeperHandBone(root, ['righthand', 'right hand', 'mixamorigrighthand']);
+
+    const makeGlove = (isLeft: boolean): THREE.Mesh => {
+      const glove = new THREE.Mesh(gloveGeometry, gloveMaterial.clone());
+      glove.castShadow = false;
+      glove.receiveShadow = false;
+      glove.scale.set(1.0, 0.9, 1.15);
+      const x = isLeft ? -0.24 : 0.24;
+      glove.position.set(x, 1.08, 0.18);
+      return glove;
+    };
+
+    const leftGlove = makeGlove(true);
+    const rightGlove = makeGlove(false);
+
+    if (leftBone) {
+      leftGlove.position.set(0, 0, 0.02);
+      leftBone.add(leftGlove);
+    } else {
+      root.add(leftGlove);
+    }
+    if (rightBone) {
+      rightGlove.position.set(0, 0, 0.02);
+      rightBone.add(rightGlove);
+    } else {
+      root.add(rightGlove);
+    }
+
+    this.keeperGloves.push(leftGlove, rightGlove);
+  }
+
+  private findKeeperHandBone(root: THREE.Object3D, candidates: string[]): THREE.Object3D | null {
+    const normalized = candidates.map((c) => c.toLowerCase().replace(/\s+/g, ''));
+    let found: THREE.Object3D | null = null;
+    root.traverse((child) => {
+      if (found) return;
+      if (!(child instanceof THREE.Bone)) return;
+      const n = child.name.toLowerCase().replace(/\s+/g, '');
+      if (normalized.some((cand) => n.includes(cand))) {
+        found = child;
+      }
+    });
+    return found;
+  }
+
   private finalizeKeeperAnimationClips(idle: THREE.AnimationClip[], dive: THREE.AnimationClip[]): void {
-    const combined: THREE.AnimationClip[] = [...idle];
-    if (!combined.length && dive.length) combined.push(dive[0]);
+    // Merge idle + dive so diving-save FBXs are available alongside body-block + idle loops.
+    const combined: THREE.AnimationClip[] = [...idle, ...dive];
+    if (!combined.length) return;
 
     // Keep one representative clip per FBX bundle.
     const byBundle = new Map<string, THREE.AnimationClip>();
@@ -497,25 +589,11 @@ export class Obstacle {
     this.playKeeperIdleLoop();
   }
 
-  /** Stop clips and reset bones to the FBX bind pose (used before each kick). */
-  private applyKeeperBindPose(): void {
-    if (!this.keeperAnimRoot) return;
-    this.keeperMixer?.stopAllAction();
-    this.keeperCurrentAction = undefined;
-    this.keeperCurrentClip = undefined;
-    this.keeperAnimRoot.updateMatrixWorld(true);
-    this.keeperAnimRoot.traverse((child) => {
-      if (child instanceof THREE.SkinnedMesh && child.skeleton) {
-        child.skeleton.pose();
-      }
-    });
-  }
-
   private playKeeperIdleLoop(): void {
     if (!this.keeperMixer || !this.keeperAnimRoot) return;
     const idleClip = this.pickRandomIdleClip();
     if (!idleClip) {
-      this.applyKeeperBindPose();
+      // Do not fallback to bind pose (T-pose) when no idle clip is found.
       return;
     }
     this.crossFadeKeeperClip(idleClip, { loop: true });
@@ -568,30 +646,63 @@ export class Obstacle {
 
   private pickRandomIdleClip(): THREE.AnimationClip | null {
     if (!this.keeperIdleClips.length) return null;
-    const preferredIdleClip = this.keeperIdleClips.find((clip) => {
+    const loopClips = this.keeperIdleClips.filter((clip) => {
       const n = clip.name.toLowerCase();
-      return n.includes('goalkeeper idle') || n.includes(' idle');
+      if (n.includes('body block')) return false;
+      if (n.includes('diving save')) return false;
+      if (n.includes('diving') && n.includes('save')) return false;
+      return n.includes('idle') || n.includes('happy');
+    });
+    const pool = loopClips.length ? loopClips : this.keeperIdleClips;
+    const preferredIdleClip = pool.find((clip) => {
+      const n = clip.name.toLowerCase();
+      return n.includes('goalkeeper idle') || /\bidle\b/.test(n);
     });
     if (preferredIdleClip) return preferredIdleClip;
-    const i = Math.floor(Math.random() * this.keeperIdleClips.length);
-    return this.keeperIdleClips[i] ?? null;
+    const i = Math.floor(Math.random() * pool.length);
+    return pool[i] ?? null;
   }
 
   private pickRandomShotClip(): THREE.AnimationClip | null {
+    const allDivingClips = this.keeperIdleClips.filter((clip) => {
+      const n = clip.name.toLowerCase();
+      return n.includes('diving save') || (n.includes('diving') && /\bsave\b/.test(n));
+    });
+    let divingClips = allDivingClips;
+    if (this.keeperCommittedDiveSide !== 0 && allDivingClips.length > 0) {
+      const sideMatched = allDivingClips.filter((clip) => {
+        return inferDiveSideFromClipName(clip.name) === this.keeperCommittedDiveSide;
+      });
+      if (sideMatched.length > 0) divingClips = sideMatched;
+    }
     const bodyBlockClips = this.keeperIdleClips.filter((clip) => {
       const n = clip.name.toLowerCase();
-      return n.includes('goalkeeper body block');
+      return n.includes('body block');
     });
-    if (bodyBlockClips.length === 0) return null;
-    const i = Math.floor(Math.random() * bodyBlockClips.length);
-    return bodyBlockClips[i] ?? null;
+    const speed = this.keeperIncomingShotSpeed;
+    const fast = speed >= KEEPER_FAST_SHOT_SPEED;
+    const diveChance = fast ? KEEPER_DIVE_PICK_WHEN_FAST : KEEPER_DIVE_PICK_WHEN_SLOW;
+
+    if (divingClips.length > 0 && Math.random() < diveChance) {
+      const i = Math.floor(Math.random() * divingClips.length);
+      return divingClips[i] ?? null;
+    }
+    if (bodyBlockClips.length > 0) {
+      const i = Math.floor(Math.random() * bodyBlockClips.length);
+      return bodyBlockClips[i] ?? null;
+    }
+    if (divingClips.length > 0) {
+      const i = Math.floor(Math.random() * divingClips.length);
+      return divingClips[i] ?? null;
+    }
+    return null;
   }
 
   private playKeeperShotOnce(): void {
     if (!this.keeperMixer || !this.keeperAnimRoot) return;
     const shotClip = this.pickRandomShotClip() ?? this.pickRandomIdleClip();
     if (!shotClip) {
-      this.applyKeeperBindPose();
+      this.playKeeperIdleLoop();
       return;
     }
     this.crossFadeKeeperClip(shotClip, { loop: false });
@@ -608,7 +719,18 @@ export class Obstacle {
     if (this.blueprintId !== 'keeperWall') return;
     this.keeperShotPhaseActive = false;
     this.keeperMovementArmed = false;
+    this.keeperPredictedTargetX = null;
+    this.keeperCommittedDiveSide = 0;
+    this.keeperIncomingShotSpeed = 0;
+    this.keeperBurstUntilMs = 0;
     this.playKeeperIdleLoop();
+    this.applyKeeperHitbox('default');
+  }
+
+  /** Call before `prepareKeeperForIncomingShot` so save animation can bias to diving on hard strikes. */
+  public setKeeperIncomingShotSpeed(speed: number): void {
+    if (this.blueprintId !== 'keeperWall') return;
+    this.keeperIncomingShotSpeed = Math.max(0, speed);
   }
 
   private applyScale(scaleConfig?: number | { x?: number; y?: number; z?: number }, target?: THREE.Object3D) {
@@ -642,6 +764,67 @@ export class Obstacle {
     });
 
     this.debugRoot.add(created.debugMesh);
+
+    if (this.blueprintId === 'keeperWall' && collider.shape === 'box' && collider.size) {
+      this.keeperDefaultHitHalfExtents = new CANNON.Vec3(
+        collider.size.x / 2,
+        collider.size.y / 2,
+        collider.size.z / 2
+      );
+      if (created.debugMesh instanceof THREE.Mesh) {
+        this.keeperColliderDebugMesh = created.debugMesh;
+      }
+    }
+  }
+
+  /**
+   * Strict side lock: during a shot, only a dive-side slab collides so the opposite wing cannot
+   * stop the ball. Between rounds, restores the full torso box from blueprint.
+   */
+  private applyKeeperHitbox(_mode: 'default' | 'strict'): void {
+    if (this.blueprintId !== 'keeperWall' || !this.keeperDefaultHitHalfExtents) return;
+
+    const existing = [...this.body.shapes];
+    for (const shape of existing) {
+      this.body.removeShape(shape);
+    }
+
+    // Keep full-body collider active for all keeper states.
+    this.body.addShape(new CANNON.Box(this.keeperDefaultHitHalfExtents.clone()));
+
+    this.body.updateMassProperties();
+    this.body.aabbNeedsUpdate = true;
+    this.syncKeeperColliderDebugMesh();
+  }
+
+  private syncKeeperStrictColliderOffset(): void {
+    if (
+      this.blueprintId !== 'keeperWall' ||
+      !this.keeperShotPhaseActive ||
+      !this.keeperMovementArmed ||
+      this.getKeeperGameplayDiveSide() === 0
+    ) {
+      return;
+    }
+
+    const offset = this.body.shapeOffsets[1];
+    if (!offset) return;
+
+    const side = this.getKeeperGameplayDiveSide();
+    offset.set(side * 0.62, 0.1, 0.08);
+    this.body.aabbNeedsUpdate = true;
+  }
+
+  private syncKeeperColliderDebugMesh(): void {
+    const mesh = this.keeperColliderDebugMesh;
+    if (!mesh || !this.keeperDefaultHitHalfExtents) return;
+
+    const prev = mesh.geometry;
+    if (prev instanceof THREE.BoxGeometry) prev.dispose();
+
+    const he = this.keeperDefaultHitHalfExtents;
+    mesh.geometry = new THREE.BoxGeometry(he.x * 2, he.y * 2, he.z * 2);
+    mesh.position.set(0, 0, 0);
   }
 
   private createCollider(config: ObstacleColliderConfig): ColliderCreated {
@@ -814,11 +997,25 @@ export class Obstacle {
 
     this.currentQuaternion.copy(quaternion);
 
+    const prevPhysX = this.body.position.x;
+    const prevPhysY = this.body.position.y;
+    const prevPhysZ = this.body.position.z;
+
     this.applyTransform(position, quaternion);
     this.updateKeeperPose(position, deltaTime);
 
+    const dtPhys = Math.min(Math.max(deltaTime, 0), 0.05);
+    if (this.blueprintId === 'keeperWall' && this.shouldTrack && dtPhys > 1e-6) {
+      // Cannon uses kinematic velocity for contacts vs fast dynamics; do not leave it at zero.
+      this.body.velocity.set(
+        (this.body.position.x - prevPhysX) / dtPhys,
+        (this.body.position.y - prevPhysY) / dtPhys,
+        (this.body.position.z - prevPhysZ) / dtPhys
+      );
+    } else {
+      this.body.velocity.set(0, 0, 0);
+    }
     this.body.angularVelocity.set(0, 0, 0);
-    this.body.velocity.set(0, 0, 0);
   }
 
   setColliderDebugVisible(visible: boolean): void {
@@ -830,6 +1027,8 @@ export class Obstacle {
     if (this.blueprintId !== 'keeperWall') return;
     this.keeperShotPhaseActive = true;
     this.keeperMovementArmed = false;
+    // Give enough time for edge shots; too short misses left/right saves.
+    this.keeperBurstUntilMs = performance.now() + 320;
     this.randomizeKeeperPatrolForShot();
     // Keep normal keeper stance before movement arm; no T-pose hold.
     this.playKeeperIdleLoop();
@@ -860,17 +1059,66 @@ export class Obstacle {
     }
   }
 
+  public setKeeperPredictedTargetX(targetX: number): void {
+    if (this.blueprintId !== 'keeperWall') return;
+    this.keeperPredictedTargetX = targetX;
+  }
+
+  public getKeeperCommittedDiveSide(): -1 | 0 | 1 {
+    if (this.blueprintId !== 'keeperWall') return 0;
+    return this.getKeeperGameplayDiveSide();
+  }
+
+  /** Returns the keeper's current patrol X in world space (physics body center). */
+  public getKeeperPatrolX(): number {
+    return this.body.position.x;
+  }
+
+  /** Returns world-space keeper visual root position (feet level). */
+  public getKeeperVisualRootPosition(): THREE.Vector3 {
+    const worldPos = new THREE.Vector3();
+    if (this.blueprintId === 'keeperWall' && this.keeperAnimRoot) {
+      this.keeperAnimRoot.getWorldPosition(worldPos);
+      return worldPos;
+    }
+    worldPos.set(this.body.position.x, this.body.position.y, this.body.position.z);
+    return worldPos;
+  }
+
+  /** Returns world-space keeper visual torso center (not physics pivot). */
+  public getKeeperVisualBodyCenter(): THREE.Vector3 {
+    const center = this.getKeeperVisualRootPosition();
+    center.y += 0.9;
+    return center;
+  }
+
+  private getKeeperGameplayDiveSide(): -1 | 0 | 1 {
+    if (this.keeperCommittedDiveSide === 0) return 0;
+    return (this.keeperCommittedDiveSide * KEEPER_GAMEPLAY_SIDE_SIGN) as -1 | 1;
+  }
+
   private randomizeKeeperPatrolForShot(): void {
     const patrol = this.behaviorState.patrol;
     if (!patrol) return;
 
     // Start each shot with an immediate side commit.
     this.movementTime = 0;
-    const moveRight = Math.random() >= 0.5;
+    // Bias heavily to predicted side so left/right shots are actually contested.
+    const predictionChance = 0.92;
+    let moveRight: boolean;
+    if (this.keeperPredictedTargetX !== null && Math.random() < predictionChance) {
+      const noise = THREE.MathUtils.randFloatSpread(0.08);
+      moveRight = this.keeperPredictedTargetX + noise >= this.currentBasePosition.x;
+    } else {
+      moveRight = Math.random() >= 0.5;
+    }
+    this.keeperCommittedDiveSide = moveRight ? 1 : -1;
     patrol.phase = moveRight ? Math.PI * 0.5 : -Math.PI * 0.5;
 
-    // Faster lateral reaction once movement is armed.
-    patrol.speed = THREE.MathUtils.randFloat(3.0, 4.2);
+    // Stronger lateral speed so wing shots can be reached.
+    patrol.speed = THREE.MathUtils.randFloat(3.4, 4.3);
+
+    this.applyKeeperHitbox('strict');
   }
 
   stopTracking(): void {
@@ -958,6 +1206,7 @@ export class Obstacle {
     this.keeperMixer?.stopAllAction();
     this.keeperMixer = undefined;
     this.keeperAnimRoot = undefined;
+    this.keeperGloves = [];
     this.disposeObject(this.visualRoot);
     this.disposeObject(this.debugRoot);
   }
@@ -1006,6 +1255,7 @@ export class Obstacle {
     this.body.interpolatedPosition.copy(this.body.position);
     this.body.previousQuaternion.copy(this.body.quaternion);
     this.body.interpolatedQuaternion.copy(this.body.quaternion);
+    this.syncKeeperStrictColliderOffset();
     this.body.aabbNeedsUpdate = true;
     this.body.updateAABB();
   }
@@ -1046,13 +1296,27 @@ export class Obstacle {
     const axis = state.axis;
     if (this.blueprintId === 'keeperWall') {
       const dt = Math.min(Math.max(deltaTime, 0), 0.05);
+      const inBurstWindow =
+        this.keeperMovementArmed &&
+        this.keeperPredictedTargetX !== null &&
+        performance.now() <= this.keeperBurstUntilMs;
+
+      if (inBurstWindow && axis === 'x') {
+        const predictedX = this.keeperPredictedTargetX;
+        if (predictedX !== null) {
+          rawValue = THREE.MathUtils.clamp(predictedX, min, max);
+        }
+      }
+
       if (this.keeperSmoothedPatrol === null) {
         this.keeperSmoothedPatrol = rawValue;
       } else {
+        // Higher lambda reacts faster to left/right targets.
+        const smoothLambda = inBurstWindow ? 36.0 : 14.0;
         this.keeperSmoothedPatrol = THREE.MathUtils.damp(
           this.keeperSmoothedPatrol,
           rawValue,
-          10.0,
+          smoothLambda,
           dt
         );
       }
