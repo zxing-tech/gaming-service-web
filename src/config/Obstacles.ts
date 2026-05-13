@@ -3,10 +3,14 @@ import { GOAL_WIDTH } from './Goal';
 
 /** Primary FBX: mesh + default animations (Mixamo Goalkeeper Body Block). */
 export const MIXAMO_KEEPER_FBX_BASE = getAssetPath('/assets/models/Goalkeeper Body Block (3).fbx');
-/** Second Body Block variant — merged on the same rig; build keeps exactly one clip per file (two animations total). */
+/** Eager-loaded extras — required at boot so the keeper has a proper idle pose before the first shot. */
 export const MIXAMO_KEEPER_FBX_EXTRA = [
+  getAssetPath('/assets/models/Goalkeeper Idle.fbx')
+] as const;
+/** Deferred extras — fetched in background after initial load. Until they arrive the keeper falls
+ * back to Body Block (one variant from the base FBX) instead of a diving save. ~150MB saved at boot. */
+export const MIXAMO_KEEPER_FBX_DEFERRED = [
   getAssetPath('/assets/models/Goalkeeper Body Block (2).fbx'),
-  getAssetPath('/assets/models/Goalkeeper Idle.fbx'),
   getAssetPath('/assets/models/Goalkeeper Diving Save (3).fbx'),
   getAssetPath('/assets/models/Goalkeeper Diving Save (4).fbx')
 ] as const;
@@ -88,6 +92,8 @@ export interface ModelRenderConfig {
   sourceFormat?: 'gltf' | 'fbx';
   /** Same rig as `assetUrl`; clips are merged onto the primary skeleton in the obstacle. */
   extraAnimationUrls?: readonly string[];
+  /** Loaded after the obstacle is on screen; clips are appended once they arrive (best-effort). */
+  deferredAnimationUrls?: readonly string[];
   scale?: number | Vector3Init;
   pivotOffset?: Vector3Init;
 }
@@ -194,6 +200,7 @@ export const OBSTACLE_BLUEPRINTS: Record<string, ObstacleBlueprint> = {
       sourceFormat: 'fbx',
       assetUrl: MIXAMO_KEEPER_FBX_BASE,
       extraAnimationUrls: MIXAMO_KEEPER_FBX_EXTRA,
+      deferredAnimationUrls: MIXAMO_KEEPER_FBX_DEFERRED,
       scale: 0.011
     },
     collider: {

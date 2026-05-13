@@ -4,12 +4,8 @@ import { useState } from 'react';
 import { useGameEvent } from '@/hooks/useGameEvent';
 import { gameEventBus } from '@/lib/gameEventBus';
 import { gameStateService } from '@/../src/core/GameStateService';
-import { showToast } from '@/lib/toast';
-import { TOSS_CONFIG } from '@/../src/config/TossConfig';
-import { isTossGameCenterAvailable } from '@/../src/utils/TossEnvironment';
 import { Modal, ModalHeader, ModalContent, ModalFooter } from '@/components/ui/Modal';
-import { StyledIconButton } from '@/components/common/StyledIconButton';
-import { Ranking, Gear, ArrowClockwise, Play } from '@phosphor-icons/react';
+import { Play } from '@phosphor-icons/react';
 import { type ElementType } from 'react';
 
 export function PauseModal() {
@@ -43,11 +39,6 @@ export function PauseModal() {
     gameEventBus.emit({ type: 'SHOW_PAUSE_MODAL', show: false });
   };
 
-  const handleRestart = () => {
-    handleClose();
-    gameEventBus.emit({ type: 'RESTART_GAME' } as any); 
-  };
-
   const handleContinue = () => {
     // Unlock audio context logic is handled by user interaction here
     gameEventBus.emit({ type: 'UNLOCK_AUDIO' });
@@ -67,30 +58,6 @@ export function PauseModal() {
     gameEventBus.emit({ type: 'MASTER_VOLUME_CHANGED', volume });
   };
 
-  const handleRanking = async () => {
-
-    if (!TOSS_CONFIG.GAME_CENTER_ENABLED) {
-      console.warn('ℹ️ Game Center is not enabled yet.');
-      showToast.info('Ranking is coming soon.\\nPlease check back later!');
-      return;
-    }
-
-
-    if (!isTossGameCenterAvailable()) {
-      console.warn('ℹ️ Ranking is only available in the Toss app.');
-      showToast.info('Ranking is only available in the Toss app.\\nPlease run the game in Toss.');
-      return;
-    }
-
-    try {
-      const { openGameCenterLeaderboard } = await import('@apps-in-toss/web-framework');
-      await openGameCenterLeaderboard();
-      console.log('✅ Opened Toss Game Center leaderboard');
-    } catch (error) {
-      console.error('❌ Failed to open leaderboard:', error);
-    }
-  };
-
   const getTitle = () => {
     switch (view) {
       case 'pause': return 'Paused';
@@ -108,20 +75,6 @@ export function PauseModal() {
       <ModalContent centered={view === 'pause'}>
         {view === 'pause' && (
           <div className="w-full max-w-2xl flex flex-col items-center gap-5">
-            <div className="flex gap-6 w-full max-w-lg justify-center">
-              <StyledIconButton 
-                Icon={Ranking} 
-                label="Ranking" 
-                variant="ranking"
-                onClick={handleRanking}
-              />
-              <StyledIconButton 
-                Icon={Gear} 
-                label="Settings" 
-                variant="settings"
-                onClick={() => setView('settings')} 
-              />
-            </div>
             <button
               type="button"
               onClick={() => setShowTerms((prev) => !prev)}
@@ -161,18 +114,12 @@ export function PauseModal() {
 
       {view === 'pause' && (
         <ModalFooter>
-          <div className="flex items-center justify-center gap-6">
-            <CircleButton 
-              Icon={ArrowClockwise} 
-              size="w-16 h-16" 
-              iconSize="text-3xl"
-              onClick={handleRestart}
-            />
-            <CircleButton 
-              Icon={Play} 
-              size="w-20 h-20" 
+          <div className="flex items-center justify-center">
+            <CircleButton
+              Icon={Play}
+              size="w-20 h-20"
               iconSize="text-4xl"
-              isLarge 
+              isLarge
               onClick={handleContinue}
             />
           </div>

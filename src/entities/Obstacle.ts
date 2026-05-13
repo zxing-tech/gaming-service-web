@@ -462,8 +462,28 @@ export class Obstacle {
         this.keeperMixer = new THREE.AnimationMixer(primary);
 
         const extras = [...(render.extraAnimationUrls ?? [])];
+        const deferred = [...(render.deferredAnimationUrls ?? [])];
+        const startDeferredLoad = () => {
+          if (deferred.length === 0) return;
+          deferred.forEach((url) => {
+            loader.load(
+              encodeURI(url),
+              (extra) => {
+                pushClips(extra.animations, basenameFromAssetUrl(url));
+                disposeSceneMeshes(extra);
+                this.appendKeeperDeferredClips(idle, dive);
+              },
+              undefined,
+              (error) => {
+                console.warn(`[Obstacle] Deferred keeper FBX failed: ${url}`, error);
+              }
+            );
+          });
+        };
+
         if (extras.length === 0) {
           this.finalizeKeeperAnimationClips(idle, dive);
+          startDeferredLoad();
           return;
         }
 
@@ -477,6 +497,7 @@ export class Obstacle {
               remaining -= 1;
               if (remaining === 0) {
                 this.finalizeKeeperAnimationClips(idle, dive);
+                startDeferredLoad();
               }
             },
             undefined,
@@ -484,6 +505,7 @@ export class Obstacle {
               remaining -= 1;
               if (remaining === 0) {
                 this.finalizeKeeperAnimationClips(idle, dive);
+                startDeferredLoad();
               }
             }
           );
@@ -587,6 +609,19 @@ export class Obstacle {
 
     // Keep goalkeeper in a natural looping idle state after load.
     this.playKeeperIdleLoop();
+  }
+
+  /** Re-run dedup with the latest idle/dive lists; called each time a deferred FBX finishes. */
+  private appendKeeperDeferredClips(idle: THREE.AnimationClip[], dive: THREE.AnimationClip[]): void {
+    if (!this.keeperMixer || !this.keeperAnimRoot) return;
+    const combined: THREE.AnimationClip[] = [...idle, ...dive];
+    if (!combined.length) return;
+    const byBundle = new Map<string, THREE.AnimationClip>();
+    for (const clip of combined) {
+      const key = clip.name.includes('::') ? clip.name.slice(0, clip.name.indexOf('::')) : clip.name;
+      if (!byBundle.has(key)) byBundle.set(key, clip);
+    }
+    this.keeperIdleClips = [...byBundle.values()];
   }
 
   private playKeeperIdleLoop(): void {
