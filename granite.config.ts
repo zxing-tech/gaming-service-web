@@ -2,9 +2,9 @@ import { defineConfig } from '@apps-in-toss/web-framework/config';
 
 export default defineConfig({
   webViewProps: { type: 'game' },
-  appName: 'garb-football',
+  appName: 'grab-football',
   brand: {
-    displayName: 'Garb Football',
+    displayName: 'Grab Football',
     primaryColor: '#35CD21',
     icon: '',
     bridgeColorMode: 'basic',
