@@ -5,7 +5,7 @@ import { useGameEvent } from '@/hooks/useGameEvent';
 
 export function ScoreDisplay() {
   const [displayScore, setDisplayScore] = useState(0);
-  const [lives, setLives] = useState({ remaining: 2, total: 2 });
+  const [lives, setLives] = useState({ remaining: 3, total: 3 });
   const [tierTimer, setTierTimer] = useState({ remainingMs: 60_000, totalMs: 60_000, tierId: 1 as 1 | 2 | 3 });
   const [isCinematic, setIsCinematic] = useState(false);
   const animationFrameRef = useRef<number | null>(null);
@@ -93,17 +93,15 @@ export function ScoreDisplay() {
           right: 'calc(env(safe-area-inset-right, 0px) + 10px)'
         }}
       >
-        <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/70">
-          T{tierTimer.tierId}
-        </span>
         <span className="font-mono text-[16px] font-extrabold leading-none tabular-nums text-white">
           {formatMsToClock(tierTimer.remainingMs)}
         </span>
       </div>
 
-      {/* Sponsor strip + score — width capped so it never spills past rounded displays */}
+      {/* Sponsor strip + score — width capped so it never spills past rounded displays.
+          Hidden: replaced by the in-world `Jumbotron` mesh behind the goal. */}
       <div
-        className={`pointer-events-none absolute left-1/2 z-[6] flex w-[min(280px,calc(100%-16px))] max-w-[92%] -translate-x-1/2 flex-col items-center px-1 transition-opacity duration-300 ${isCinematic ? 'opacity-0' : 'opacity-100'}`}
+        className={`pointer-events-none absolute left-1/2 z-[6] hidden w-[min(280px,calc(100%-16px))] max-w-[92%] -translate-x-1/2 flex-col items-center px-1 transition-opacity duration-300 ${isCinematic ? 'opacity-0' : 'opacity-100'}`}
         style={{
           top: 'calc(env(safe-area-inset-top, 0px) + max(6px, 1vh))'
         }}

@@ -447,6 +447,9 @@ export class Obstacle {
           if (child instanceof THREE.Mesh) {
             child.castShadow = false;
             child.receiveShadow = false;
+            // Skinned mesh bounding box only reflects the bind pose. Disable culling so dives/
+            // saves don't make the keeper vanish when the camera zooms in close on follow-ball.
+            child.frustumCulled = false;
             if (child.material instanceof THREE.MeshStandardMaterial && child.material.map) {
               child.material.map.colorSpace = THREE.SRGBColorSpace;
             }

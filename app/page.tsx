@@ -6,6 +6,7 @@ import { TouchGuide } from '@/components/hud/TouchGuide';
 import { ShotInfoHud } from '@/components/hud/ShotInfoHud';
 import { ScoreDisplay } from '@/components/hud/ScoreDisplay';
 import { TierChangeHud } from '@/components/hud/TierChangeHud';
+import { GoalCelebration } from '@/components/hud/GoalCelebration';
 import { LoadingScreen } from './components/screens/LoadingScreen';
 import { PauseButton } from './components/hud/PauseButton';
 import { PauseModal } from './components/modals/PauseModal';
@@ -49,6 +50,7 @@ export default function HomePage() {
         <ShotInfoHud />
         <TierChangeHud />
         <ScoreDisplay />
+        <GoalCelebration />
         <PauseButton />
         
         <PauseModal />

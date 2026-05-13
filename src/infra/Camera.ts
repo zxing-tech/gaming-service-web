@@ -4,7 +4,7 @@ export const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 2.4, 6.2);
 export const DEFAULT_CAMERA_LOOKAT = new THREE.Vector3(0, 0.95, -5.9);
 
 // Follow-ball cinematic camera: ride behind and slightly above the ball during a shot.
-export const BALL_FOLLOW_OFFSET = new THREE.Vector3(0, 1.4, 2.8);
+export const BALL_FOLLOW_OFFSET = new THREE.Vector3(0, 2.0, 5.5);
 // Bias the lookAt past the ball toward the goal (negative Z) so the framing leads the motion.
 export const BALL_FOLLOW_LOOKAHEAD_Z = -1.8;
 // Per-frame lerp factor at 60fps; smaller = softer follow.

@@ -40,6 +40,7 @@ import { AssetLoader } from './AssetLoader';
 import { gameEventBus } from '../../app/lib/gameEventBus';
 import { gameStateService } from './GameStateService';
 import { CharacterActors } from '../entities/CharacterActors';
+import { Jumbotron } from '../entities/Jumbotron';
 import {
   DEFAULT_TIER_ID,
   getTierConfig,
@@ -65,6 +66,7 @@ export class SnapShoot {
   private readonly characterActors: CharacterActors;
   private readonly goal: Goal;
   private readonly field: Field;
+  private readonly jumbotron: Jumbotron;
   public readonly audio = new AudioManager();
 
   // Loggers
@@ -210,6 +212,8 @@ export class SnapShoot {
       goalDepth: GOAL_DEPTH
     });
 
+    this.jumbotron = new Jumbotron(this.scene);
+
     this.ball = new Ball(this.world, materials.ball);
     this.ball.body.addEventListener('collide', this.handleBallCollideBound);
     this.ballController = new BallController(this.ball);
@@ -281,6 +285,7 @@ export class SnapShoot {
     this.applyAutoTierByScore(this.score);
     this.updateScore(this.score);
     this.resetIdleTimer();
+    gameEventBus.emit({ type: 'GOAL_SCORED', score: this.score });
 
     if (this.touchGuideTimer !== null) {
       clearTimeout(this.touchGuideTimer);
@@ -644,6 +649,7 @@ export class SnapShoot {
 
   private updateScore(newScore: number): void {
     this.onScoreChange(newScore);
+    this.jumbotron.setScore(newScore);
     gameEventBus.emit({ type: 'SCORE_CHANGED', score: newScore });
 
     const bestScore = gameStateService.getBestScore();

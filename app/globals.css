@@ -124,6 +124,20 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+@keyframes goal-pop {
+  0%   { transform: scale(0.55); opacity: 0; }
+  18%  { transform: scale(1.18); opacity: 1; }
+  32%  { transform: scale(1.0);  opacity: 1; }
+  80%  { transform: scale(1.0);  opacity: 1; }
+  100% { transform: scale(1.25); opacity: 0; }
+}
+
+.goal-celebration__text {
+  font-size: clamp(3.5rem, 22vw, 8rem);
+  animation: goal-pop 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.35);
+}
+
 
 #settings-scroll-container,
 #settings-modal-content {
