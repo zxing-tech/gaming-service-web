@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-SnapShoot (`appName: garb-football`) is a swipe-to-shoot arcade penalty game distributed inside the Toss "Apps in Toss" web framework. It runs as a Next.js static export with a Three.js + Cannon-es game core.
+SnapShoot (`appName: grab-football`) is a swipe-to-shoot arcade penalty game distributed inside the Toss "Apps in Toss" web framework. It runs as a Next.js static export with a Three.js + Cannon-es game core.
 
 ## Commands
 

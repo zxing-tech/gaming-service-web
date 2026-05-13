@@ -5,8 +5,8 @@ import { getAssetPath } from '@/../src/utils/assetPath';
 const iconPath = getAssetPath('/logo-grab.png');
 
 export const metadata: Metadata = {
-  title: 'Garb Football',
-  description: 'Garb Football',
+  title: 'Grab Football',
+  description: 'Grab Football',
   icons: {
     icon: iconPath,
     apple: iconPath,
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Garb Football',
+    title: 'Grab Football',
   },
   formatDetection: {
     telephone: false,
