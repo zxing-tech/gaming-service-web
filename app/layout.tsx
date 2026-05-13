@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { getAssetPath } from '@/../src/utils/assetPath';
 
-const iconPath = getAssetPath('/icon.svg');
+const iconPath = getAssetPath('/logo-grab.png');
 
 export const metadata: Metadata = {
   title: 'Garb Football',
