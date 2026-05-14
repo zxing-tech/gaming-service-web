@@ -14,6 +14,12 @@ import {
   type RangeValue
 } from '../config/Obstacles';
 import { getAssetPath } from '../utils/assetPath';
+import { PLAYERS_CONFIG } from '../config/Players';
+import {
+  applyCharacterAppearance,
+  attachTorsoLogo,
+  loadCharacterLogoTexture,
+} from '../utils/characterAppearance';
 
 const DEFAULT_CYLINDER_SEGMENTS = 16;
 
@@ -455,6 +461,7 @@ export class Obstacle {
             }
           }
         });
+        applyKeeperAppearance(primary, this.loadingManager);
         group.add(primary);
         this.alignKeeperFeetToGround(primary, group);
         this.attachKeeperGloves(primary);
@@ -1489,5 +1496,20 @@ export class Obstacle {
         }
       }
     });
+  }
+}
+
+/** Apply jersey color (if configured) and attach chest logo plane to the keeper rig. */
+function applyKeeperAppearance(root: THREE.Object3D, loadingManager: THREE.LoadingManager): void {
+  const appearance = (PLAYERS_CONFIG.goalkeeper as { appearance?: { shirt?: { color: number }; chestLogo?: string; backLogo?: string } }).appearance;
+  if (!appearance) return;
+  applyCharacterAppearance(root, appearance);
+  if (appearance.chestLogo) {
+    const texture = loadCharacterLogoTexture(loadingManager, appearance.chestLogo);
+    attachTorsoLogo(root, texture, { side: 'front' });
+  }
+  if (appearance.backLogo) {
+    const texture = loadCharacterLogoTexture(loadingManager, appearance.backLogo);
+    attachTorsoLogo(root, texture, { side: 'back' });
   }
 }

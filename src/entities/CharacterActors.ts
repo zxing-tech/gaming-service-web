@@ -2,6 +2,7 @@ import type * as CANNON from 'cannon-es';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { PLAYERS_CONFIG } from '../config/Players';
+import { bakeJerseyTexture } from '../utils/characterAppearance';
 
 export class CharacterActors {
   private static readonly STRIKER_IDLE_OFFSET_X = -0.26;
@@ -33,6 +34,17 @@ export class CharacterActors {
     if (PLAYERS_CONFIG.kicker.sourceFormat !== 'fbx') return;
 
     const loader = new FBXLoader(this.loadingManager);
+    const appearance = PLAYERS_CONFIG.kicker.appearance;
+    const applyKickerCustomization = (target: THREE.Object3D): Promise<void> => {
+      const shirtColor = appearance?.shirt?.color;
+      if (shirtColor == null) return Promise.resolve();
+      return bakeJerseyTexture(target, {
+        color: shirtColor,
+        logoUrl: appearance?.jerseyBake?.logoUrl,
+        number: appearance?.jerseyBake?.number,
+        numberColor: appearance?.jerseyBake?.numberColor,
+      });
+    };
     try {
       const root = await loader.loadAsync(encodeURI(PLAYERS_CONFIG.kicker.assetUrl));
       root.traverse((child) => {
@@ -44,6 +56,7 @@ export class CharacterActors {
           }
         }
       });
+      await applyKickerCustomization(root);
 
       root.scale.setScalar(0.0085);
       root.rotation.y = Math.PI;
@@ -92,6 +105,7 @@ export class CharacterActors {
               }
             }
           });
+          await applyKickerCustomization(idleRoot);
           idleRoot.scale.setScalar(0.0085);
           idleRoot.rotation.y = Math.PI;
           idleRoot.visible = false;
@@ -255,3 +269,4 @@ export class CharacterActors {
     }
   }
 }
+
