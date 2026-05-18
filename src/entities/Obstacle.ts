@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as CANNON from 'cannon-es';
 import {
@@ -18,7 +17,9 @@ import { PLAYERS_CONFIG } from '../config/Players';
 import {
   applyCharacterAppearance,
   attachTorsoLogo,
+  forceBoneTextureForIOS,
   loadCharacterLogoTexture,
+  normalizeCharacterBrightness,
 } from '../utils/characterAppearance';
 
 const DEFAULT_CYLINDER_SEGMENTS = 16;
@@ -245,7 +246,6 @@ export class Obstacle {
   private keeperIncomingShotSpeed = 0;
   /** Short burst window where keeper snaps to intercept the shot. */
   private keeperBurstUntilMs = 0;
-  private keeperGloves: THREE.Object3D[] = [];
   /** Baseline keeperWall box half extents; used to restore collider between rounds. */
   private keeperDefaultHitHalfExtents: CANNON.Vec3 | null = null;
   /** Wireframe helper for keeper hitbox (kept in sync when hitbox rebuilds). */
@@ -385,8 +385,8 @@ export class Obstacle {
     }
     this.visualRoot.add(group);
 
-    if (render.sourceFormat === 'fbx') {
-      this.loadKeeperFbxBundle(render, group);
+    if (render.extraAnimationUrls?.length || render.deferredAnimationUrls?.length) {
+      this.loadKeeperBundle(render, group);
       this.applyScale(render.scale, group);
       return;
     }
@@ -416,11 +416,11 @@ export class Obstacle {
     this.applyScale(render.scale, group);
   }
 
-  private loadKeeperFbxBundle(
+  private loadKeeperBundle(
     render: Extract<ObstacleBlueprint['render'], { kind: 'model' }>,
     group: THREE.Group
   ): void {
-    const loader = new FBXLoader(this.loadingManager);
+    const loader = new GLTFLoader(this.loadingManager);
     const idle: THREE.AnimationClip[] = [];
     const dive: THREE.AnimationClip[] = [];
 
@@ -447,8 +447,9 @@ export class Obstacle {
 
     loader.load(
       encodeURI(render.assetUrl),
-      (primary) => {
-        pushClips(primary.animations, basenameFromAssetUrl(render.assetUrl));
+      (primaryGltf) => {
+        const primary = primaryGltf.scene;
+        pushClips(primaryGltf.animations, basenameFromAssetUrl(render.assetUrl));
         primary.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             child.castShadow = false;
@@ -461,10 +462,14 @@ export class Obstacle {
             }
           }
         });
+        normalizeCharacterBrightness(primary);
+        forceBoneTextureForIOS(primary);
         applyKeeperAppearance(primary, this.loadingManager);
         group.add(primary);
         this.alignKeeperFeetToGround(primary, group);
-        this.attachKeeperGloves(primary);
+        // attachKeeperGloves() was an FBX-era stand-in for hand detail; the GLB rig already
+        // ships textured hands, and the bone-local sphere radius now renders as a ~9cm white
+        // ball under the new group scale. Skip — the texture-hands look correct on their own.
         this.keeperAnimRoot = primary;
         this.keeperMixer = new THREE.AnimationMixer(primary);
 
@@ -475,14 +480,14 @@ export class Obstacle {
           deferred.forEach((url) => {
             loader.load(
               encodeURI(url),
-              (extra) => {
-                pushClips(extra.animations, basenameFromAssetUrl(url));
-                disposeSceneMeshes(extra);
+              (extraGltf) => {
+                pushClips(extraGltf.animations, basenameFromAssetUrl(url));
+                disposeSceneMeshes(extraGltf.scene);
                 this.appendKeeperDeferredClips(idle, dive);
               },
               undefined,
               (error) => {
-                console.warn(`[Obstacle] Deferred keeper FBX failed: ${url}`, error);
+                console.warn(`[Obstacle] Deferred keeper GLB failed: ${url}`, error);
               }
             );
           });
@@ -498,9 +503,9 @@ export class Obstacle {
         extras.forEach((url) => {
           loader.load(
             encodeURI(url),
-            (extra) => {
-              pushClips(extra.animations, basenameFromAssetUrl(url));
-              disposeSceneMeshes(extra);
+            (extraGltf) => {
+              pushClips(extraGltf.animations, basenameFromAssetUrl(url));
+              disposeSceneMeshes(extraGltf.scene);
               remaining -= 1;
               if (remaining === 0) {
                 this.finalizeKeeperAnimationClips(idle, dive);
@@ -520,7 +525,7 @@ export class Obstacle {
       },
       undefined,
       (error) => {
-        console.error(`[Obstacle] Keeper base FBX failed: ${render.assetUrl}`, error);
+        console.error(`[Obstacle] Keeper base GLB failed: ${render.assetUrl}`, error);
       }
     );
   }
@@ -538,65 +543,6 @@ export class Obstacle {
     group.worldToLocal(footLocal);
     primary.position.y -= footLocal.y;
     primary.position.y += CLEARANCE;
-  }
-
-  private attachKeeperGloves(root: THREE.Object3D): void {
-    if (this.keeperGloves.length > 0) {
-      this.keeperGloves.forEach((glove) => glove.removeFromParent());
-      this.keeperGloves = [];
-    }
-
-    const gloveMaterial = new THREE.MeshStandardMaterial({
-      color: 0xf7f9ff,
-      roughness: 0.35,
-      metalness: 0.05
-    });
-    const gloveGeometry = new THREE.SphereGeometry(0.08, 12, 10);
-
-    const leftBone = this.findKeeperHandBone(root, ['lefthand', 'left hand', 'mixamoriglefthand']);
-    const rightBone = this.findKeeperHandBone(root, ['righthand', 'right hand', 'mixamorigrighthand']);
-
-    const makeGlove = (isLeft: boolean): THREE.Mesh => {
-      const glove = new THREE.Mesh(gloveGeometry, gloveMaterial.clone());
-      glove.castShadow = false;
-      glove.receiveShadow = false;
-      glove.scale.set(1.0, 0.9, 1.15);
-      const x = isLeft ? -0.24 : 0.24;
-      glove.position.set(x, 1.08, 0.18);
-      return glove;
-    };
-
-    const leftGlove = makeGlove(true);
-    const rightGlove = makeGlove(false);
-
-    if (leftBone) {
-      leftGlove.position.set(0, 0, 0.02);
-      leftBone.add(leftGlove);
-    } else {
-      root.add(leftGlove);
-    }
-    if (rightBone) {
-      rightGlove.position.set(0, 0, 0.02);
-      rightBone.add(rightGlove);
-    } else {
-      root.add(rightGlove);
-    }
-
-    this.keeperGloves.push(leftGlove, rightGlove);
-  }
-
-  private findKeeperHandBone(root: THREE.Object3D, candidates: string[]): THREE.Object3D | null {
-    const normalized = candidates.map((c) => c.toLowerCase().replace(/\s+/g, ''));
-    let found: THREE.Object3D | null = null;
-    root.traverse((child) => {
-      if (found) return;
-      if (!(child instanceof THREE.Bone)) return;
-      const n = child.name.toLowerCase().replace(/\s+/g, '');
-      if (normalized.some((cand) => n.includes(cand))) {
-        found = child;
-      }
-    });
-    return found;
   }
 
   private finalizeKeeperAnimationClips(idle: THREE.AnimationClip[], dive: THREE.AnimationClip[]): void {
@@ -1248,7 +1194,6 @@ export class Obstacle {
     this.keeperMixer?.stopAllAction();
     this.keeperMixer = undefined;
     this.keeperAnimRoot = undefined;
-    this.keeperGloves = [];
     this.disposeObject(this.visualRoot);
     this.disposeObject(this.debugRoot);
   }

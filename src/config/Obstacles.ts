@@ -1,18 +1,21 @@
 import { getAssetPath } from '../utils/assetPath';
 import { GOAL_WIDTH } from './Goal';
 
-/** Primary FBX: mesh + default animations (Mixamo Goalkeeper Body Block). */
-export const MIXAMO_KEEPER_FBX_BASE = getAssetPath('/assets/models/Goalkeeper Body Block (3).fbx');
+/** Primary GLB: mesh + default animations (Mixamo Goalkeeper Body Block). Converted from
+ *  FBX via FBX2glTF; baseColor textures re-encoded to WebP q90 at original 4K resolution
+ *  (visually identical, ~85% smaller); PBR factors normalized at conversion time so
+ *  MeshStandardMaterial doesn't render skin/cloth as gray metal. */
+export const MIXAMO_KEEPER_FBX_BASE = getAssetPath('/assets/models/Goalkeeper Body Block (3).glb');
 /** Eager-loaded extras — required at boot so the keeper has a proper idle pose before the first shot. */
 export const MIXAMO_KEEPER_FBX_EXTRA = [
-  getAssetPath('/assets/models/Goalkeeper Idle.fbx')
+  getAssetPath('/assets/models/Goalkeeper Idle.glb')
 ] as const;
-/** Deferred extras — fetched in background after initial load. Until they arrive the keeper falls
- * back to Body Block (one variant from the base FBX) instead of a diving save. ~150MB saved at boot. */
+/** Deferred extras — fetched in background after initial load. Animation-only files (their
+ *  meshes are disposed once we extract clips), so the GLB has its textures stripped entirely. */
 export const MIXAMO_KEEPER_FBX_DEFERRED = [
-  getAssetPath('/assets/models/Goalkeeper Body Block (2).fbx'),
-  getAssetPath('/assets/models/Goalkeeper Diving Save (3).fbx'),
-  getAssetPath('/assets/models/Goalkeeper Diving Save (4).fbx')
+  getAssetPath('/assets/models/Goalkeeper Body Block (2).glb'),
+  getAssetPath('/assets/models/Goalkeeper Diving Save (3).glb'),
+  getAssetPath('/assets/models/Goalkeeper Diving Save (4).glb')
 ] as const;
 
 /** Plane size in world units — sized to fit inside GOAL_HEIGHT (2) and GOAL_WIDTH (3) opening. */
@@ -197,11 +200,10 @@ export const OBSTACLE_BLUEPRINTS: Record<string, ObstacleBlueprint> = {
     id: 'keeperWall',
     render: {
       kind: 'model',
-      sourceFormat: 'fbx',
       assetUrl: MIXAMO_KEEPER_FBX_BASE,
       extraAnimationUrls: MIXAMO_KEEPER_FBX_EXTRA,
       deferredAnimationUrls: MIXAMO_KEEPER_FBX_DEFERRED,
-      scale: 0.011
+      scale: 1.1
     },
     collider: {
       shape: 'box',

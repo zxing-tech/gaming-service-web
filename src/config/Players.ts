@@ -6,9 +6,9 @@ import { MIXAMO_KEEPER_FBX_BASE } from './Obstacles';
  */
 export const PLAYERS_CONFIG = {
   kicker: {
-    assetUrl: getAssetPath('/assets/models/Strike Foward Jog.fbx'),
-    idleAssetUrl: getAssetPath('/assets/models/Happy Idle (2).fbx'),
-    sourceFormat: 'fbx',
+    assetUrl: getAssetPath('/assets/models/Strike Foward Jog.glb'),
+    idleAssetUrl: getAssetPath('/assets/models/Happy Idle (2).glb'),
+    sourceFormat: 'gltf',
     /** Jersey decals are baked into the shirt's UV-mapped texture so they deform with skinning
      * and shade like the rest of the cloth (no floating sticker look). */
     appearance: {

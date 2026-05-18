@@ -60,8 +60,7 @@ export class AssetLoader {
       if (b.render.kind !== 'model') return;
       if (DEFERRED_OBSTACLE_MODEL_IDS.has(b.id)) return;
       const r = b.render;
-      obstacleModelAssetCount +=
-        r.sourceFormat === 'fbx' ? 1 + (r.extraAnimationUrls?.length ?? 0) : 1;
+      obstacleModelAssetCount += 1 + (r.extraAnimationUrls?.length ?? 0);
     });
     const obstacleTextureCount = obstacleBlueprints.filter(
       b => b.render.kind === 'primitive' && b.render.material?.textureUrl
@@ -120,10 +119,7 @@ export class AssetLoader {
       }
 
       if (render.kind === 'model') {
-        const urls =
-          render.sourceFormat === 'fbx'
-            ? [render.assetUrl, ...(render.extraAnimationUrls ?? [])]
-            : [render.assetUrl];
+        const urls = [render.assetUrl, ...(render.extraAnimationUrls ?? [])];
         const loader = render.sourceFormat === 'fbx' ? fbxLoader : gltfLoader;
         urls.forEach((url) => {
           loadPromises.push(
@@ -151,22 +147,17 @@ export class AssetLoader {
     });
 
 
-    const kickerIsFbx = PLAYERS_CONFIG.kicker.sourceFormat === 'fbx';
-    const kickerLoader = kickerIsFbx ? fbxLoader : gltfLoader;
-    const kickerUrl = kickerIsFbx
-      ? encodeURI(PLAYERS_CONFIG.kicker.assetUrl)
-      : PLAYERS_CONFIG.kicker.assetUrl;
     loadPromises.push(
-      kickerLoader.loadAsync(kickerUrl)
+      gltfLoader.loadAsync(PLAYERS_CONFIG.kicker.assetUrl)
         .then(() => updateProgress())
         .catch((error) => {
           this.gameLog.warn(`Failed to preload kicker model`, error);
           updateProgress();
         })
     );
-    if (kickerIsFbx && PLAYERS_CONFIG.kicker.idleAssetUrl) {
+    if (PLAYERS_CONFIG.kicker.idleAssetUrl) {
       loadPromises.push(
-        fbxLoader.loadAsync(encodeURI(PLAYERS_CONFIG.kicker.idleAssetUrl))
+        gltfLoader.loadAsync(PLAYERS_CONFIG.kicker.idleAssetUrl)
           .then(() => updateProgress())
           .catch((error) => {
             this.gameLog.warn(`Failed to preload kicker idle model`, error);
@@ -174,7 +165,7 @@ export class AssetLoader {
           })
       );
     }
-    // Goalkeeper FBX is already loaded via keeperWall blueprint (same files).
+    // Goalkeeper GLB is already loaded via keeperWall blueprint (same files).
 
     loadPromises.push(
       textureLoader.loadAsync(grassColorUrl)

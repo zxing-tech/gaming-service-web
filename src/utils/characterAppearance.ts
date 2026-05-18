@@ -20,14 +20,17 @@ type AppearanceMeshKey = keyof typeof SUBMESH_PATTERNS;
 /** Cleaned name must END WITH one of these. Works for both 'mixamorig:Spine2' and bare 'Spine2'. */
 const CHEST_BONE_CANDIDATES = ['spine2', 'spine1', 'spine'];
 
-const LOGO_SIZE_LOCAL = 22;
-const LOGO_DEPTH_LOCAL = 14;
+/** Bone-local offsets for plane decals. GLB rigs from FBX2glTF are in meters (the source FBX
+ *  was in centimeters); these values are in meters too. Get the units wrong and the decal
+ *  balloons into a multi-meter wall that occludes the whole character. */
+const LOGO_SIZE_LOCAL = 0.22;
+const LOGO_DEPTH_LOCAL = 0.14;
 const LOGO_VERTICAL_LOCAL = 0;
 
 /** Back number is larger than the logo and sits lower on the back, like a real jersey. */
-const BACK_NUMBER_SIZE_LOCAL = 32;
-const BACK_NUMBER_DEPTH_LOCAL = -14;
-const BACK_NUMBER_VERTICAL_LOCAL = -18;
+const BACK_NUMBER_SIZE_LOCAL = 0.32;
+const BACK_NUMBER_DEPTH_LOCAL = -0.14;
+const BACK_NUMBER_VERTICAL_LOCAL = -0.18;
 
 /** Set per-submesh color, dropping the shared atlas map so the color renders accurately
  * instead of being multiplied by whatever Mixamo baked in. */
@@ -60,6 +63,46 @@ function findSubmesh(root: THREE.Object3D, key: AppearanceMeshKey): THREE.Mesh |
     if (pattern.test(child.name)) found = child;
   });
   return found;
+}
+
+/** Convert each character mesh's MeshStandardMaterial → MeshPhongMaterial to match the
+ *  FBX-era render. FBXLoader produces Phong; GLTFLoader produces Standard (PBR). Under
+ *  ACES tone mapping PBR's diffuse term reads brighter and flatter than Phong, which is
+ *  what shows up as "pale" / "washed out". These Phong settings mirror what FBXLoader
+ *  builds for a textured Mixamo character (white base color, no specular, no shininess) so
+ *  the texture is the only thing driving surface color. */
+export function normalizeCharacterBrightness(root: THREE.Object3D): void {
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    const std = child.material;
+    if (!(std instanceof THREE.MeshStandardMaterial)) return;
+    const phong = new THREE.MeshPhongMaterial({
+      map: std.map ?? null,
+      color: 0xffffff,
+      transparent: std.transparent,
+      opacity: std.opacity,
+      alphaTest: std.alphaTest,
+      depthWrite: std.depthWrite,
+      side: std.side,
+      shininess: 0,
+      specular: new THREE.Color(0x000000),
+    });
+    if (std.map) phong.map!.colorSpace = THREE.SRGBColorSpace;
+    child.material = phong;
+    std.dispose();
+  });
+}
+
+/** iOS Safari (WKWebView) silently drops SkinnedMeshes whose bone matrices are uploaded as
+ *  uniform arrays past a driver-side threshold, even when WebGL reports support for larger
+ *  uniforms. Forcing each skeleton to use a DataTexture for its bone matrices sidesteps that
+ *  bug and is harmless on other platforms (just a slightly different upload path). */
+export function forceBoneTextureForIOS(root: THREE.Object3D): void {
+  root.traverse((child) => {
+    if (!(child instanceof THREE.SkinnedMesh)) return;
+    const skeleton = child.skeleton;
+    if (skeleton && !skeleton.boneTexture) skeleton.computeBoneTexture();
+  });
 }
 
 export function loadCharacterLogoTexture(
