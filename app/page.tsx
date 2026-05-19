@@ -25,17 +25,25 @@ function GameContent() {
     return Number.isFinite(parsed) ? parsed : undefined;
   }, [searchParams]);
 
+  const uuidOverride = useMemo(() => {
+    const uuid = searchParams?.get('uuid');
+    return uuid && uuid.length > 0 ? uuid : undefined;
+  }, [searchParams]);
+
   useEffect(() => {
     if (initializationRef.current) return;
     initializationRef.current = true;
 
     const load = async () => {
       const { loadGame } = await import('../src/core/GameLoader');
-      loadGame(friendScore ? { score: friendScore } : undefined);
+      await loadGame({
+        score: friendScore,
+        uuid: uuidOverride,
+      });
     };
 
     void load();
-  }, [friendScore]);
+  }, [friendScore, uuidOverride]);
 
   return null;
 }

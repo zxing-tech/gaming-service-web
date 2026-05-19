@@ -149,7 +149,22 @@ export function GameOverModal() {
               <div className="rounded-xl border border-white/15 bg-black/25 px-3 py-2.5">
                 <div className="grid grid-cols-[98px_1fr] items-center gap-x-3 gap-y-2 text-[15px] leading-tight sm:grid-cols-[118px_1fr]">
                   <div className="text-white/65 text-[13px] font-semibold">Token ID</div>
-                  <div className="font-mono text-[12px] sm:text-[13px] break-all">{tokenId}</div>
+                  <button
+                    type="button"
+                    title={tokenId}
+                    onClick={async () => {
+                      if (tokenId === '-') return;
+                      try {
+                        await navigator.clipboard.writeText(tokenId);
+                        showToast.success('Token ID copied');
+                      } catch {
+                        showToast.error('Copy failed');
+                      }
+                    }}
+                    className="font-mono text-[12px] sm:text-[13px] text-left underline-offset-2 hover:underline focus:outline-none"
+                  >
+                    {tokenId.length > 16 ? `${tokenId.slice(0, 8)}…${tokenId.slice(-4)}` : tokenId}
+                  </button>
                   <div className="text-white/65 text-[13px] font-semibold">Points</div>
                   <div className="font-extrabold text-[20px]">{points.toLocaleString()}</div>
                   <div className="text-white/65 text-[13px] font-semibold">Redeemed Reward</div>

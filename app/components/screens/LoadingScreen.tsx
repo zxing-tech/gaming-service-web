@@ -58,6 +58,13 @@ export function LoadingScreen() {
     }
   });
 
+  // When the game-over modal appears, we must not be sitting on top of the
+  // canvas demanding a tap/swipe (covers the "already submitted" short-circuit
+  // and any other path that opens the modal before loading finishes).
+  useGameEvent('SHOW_GAME_OVER_MODAL', () => {
+    setStage('hidden');
+  });
+
   const transitionToStage2 = () => {
     setStage('tap');
     setTimeout(() => setTapOpacity(1), 200);

@@ -5,11 +5,9 @@ import { debugSettings } from './DebugSettings';
 import { getUserKeyForGame } from '@apps-in-toss/web-framework';
 import { isTossGameCenterAvailable, logEnvironmentInfo } from '../utils/TossEnvironment';
 import { TOSS_CONFIG } from '../config/TossConfig';
+import { BackendClient } from '../services/BackendClient';
 
 
-/**
- * Show friend score notification.
- */
 function showFriendScoreNotification(friendScore: number): void {
   const notification = document.createElement('div');
   notification.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none';
@@ -29,7 +27,40 @@ function showFriendScoreNotification(friendScore: number): void {
   }, 3000);
 }
 
-export function loadGame(params?: { score?: number }) {
+// The game requires a uuid before it can start when running inside Toss.
+// Resolves to the user's hash (treated as uuid by Grab) or null when the
+// SDK is unavailable / unauthorized (i.e. outside the Toss app shell).
+async function resolveTossUuid(): Promise<string | null> {
+  if (!(TOSS_CONFIG.GAME_CENTER_ENABLED && isTossGameCenterAvailable())) return null;
+
+  try {
+    const result = await getUserKeyForGame();
+    if (!result) {
+      console.warn('⚠️ Toss app version is too old.');
+      return null;
+    }
+    if (result === 'INVALID_CATEGORY') {
+      console.warn('⚠️ This mini app is not in the game category.');
+      return null;
+    }
+    if (result === 'ERROR') {
+      console.error('❌ Failed to fetch user key');
+      return null;
+    }
+    if (result.type === 'HASH') {
+      console.log('✅ Game login successful');
+      console.log('🔑 User key:', result.hash.substring(0, 8) + '...');
+      localStorage.setItem('toss_user_key', result.hash);
+      return result.hash;
+    }
+    return null;
+  } catch (error) {
+    console.error('❌ Game login error:', error);
+    return null;
+  }
+}
+
+export async function loadGame(params?: { score?: number; uuid?: string }) {
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement | null;
   const uiContainer = document.getElementById('ui') as HTMLDivElement | null;
 
@@ -43,42 +74,40 @@ export function loadGame(params?: { score?: number }) {
     showFriendScoreNotification(params.score);
   }
 
-
-
-
   logEnvironmentInfo();
 
+  // Block the game until we have the uuid + user record. Outside Toss this
+  // resolves to null and we run in offline mode (no backend persistence).
+  // The ?uuid= query param is a dev override that bypasses the Toss SDK.
+  const uuid = params?.uuid ?? (await resolveTossUuid());
+  if (params?.uuid) {
+    console.log(`🧪 Using uuid override from ?uuid= : ${params.uuid.substring(0, 8)}...`);
+  }
+  // Existing recorded score (if any). Used to short-circuit straight to the
+  // game-over screen when the user has already submitted (first-score-wins).
+  let existingScore: number | null = null;
+  if (uuid) {
+    try {
+      const user = await BackendClient.getUser(uuid);
+      console.log(`✅ Backend user loaded: c_score=${user.c_score}, merchant=${user.c_merchant_code}`);
+      existingScore = user.c_score;
+    } catch (err) {
+      console.error('❌ Backend getUser failed; continuing without persistence.', err);
+    }
+  } else {
+    console.warn('ℹ️ No Toss uuid available — running without backend persistence.');
+  }
 
-  if (TOSS_CONFIG.GAME_CENTER_ENABLED && isTossGameCenterAvailable()) {
-    getUserKeyForGame()
-      .then((result) => {
-        if (!result) {
-          console.warn('⚠️ Toss app version is too old.');
-          return;
-        }
-
-        if (result === 'INVALID_CATEGORY') {
-          console.warn('⚠️ This mini app is not in the game category.');
-          return;
-        }
-
-        if (result === 'ERROR') {
-          console.error('❌ Failed to fetch user key');
-          return;
-        }
-
-
-        if (result.type === 'HASH') {
-          console.log('✅ Game login successful');
-          console.log('🔑 User key:', result.hash.substring(0, 8) + '...');
-
-          localStorage.setItem('toss_user_key', result.hash);
-        }
-      })
-      .catch((error) => {
-        console.error('❌ Game login error:', error);
-
-      });
+  if (existingScore !== null) {
+    console.log(`🏁 Score already submitted (${existingScore}). Skipping game and showing game-over screen.`);
+    const { gameEventBus } = await import('../../app/lib/gameEventBus');
+    gameEventBus.emit({
+      type: 'SHOW_GAME_OVER_MODAL',
+      score: existingScore,
+      points: existingScore,
+      tokenId: uuid ?? '-',
+    });
+    return;
   }
 
   const game = new SnapShoot(
@@ -100,12 +129,19 @@ export function loadGame(params?: { score?: number }) {
 
   debugSettings.registerDebugToggler((enabled) => game.toggleDebugMode(enabled));
 
-
-
-
-
-
-
+  // POST the final score to the backend on game over. Fire-and-forget; we do
+  // not want a network failure to block the game-over UI flow.
+  if (uuid) {
+    const { gameEventBus } = await import('../../app/lib/gameEventBus');
+    // The engine emits SHOW_GAME_OVER_MODAL (not GAME_OVER) at end-of-game.
+    gameEventBus.on('SHOW_GAME_OVER_MODAL', (event) => {
+      if (event.type !== 'SHOW_GAME_OVER_MODAL') return;
+      console.log(`📤 Posting final score to backend: ${event.score}`);
+      BackendClient.updateScore(uuid, event.score).catch((err) => {
+        console.error('❌ Backend updateScore failed', err);
+      });
+    });
+  }
 
   // Apps in Toss guideline: ensure audio does not keep playing in background.
   const handleVisibilityChange = () => {
