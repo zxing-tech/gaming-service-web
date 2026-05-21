@@ -26,8 +26,11 @@ FROM nginx:1.27-alpine AS runtime
 # Custom nginx config: gzip, asset caching, correct MIME for .glb/.fbx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Static export output
-COPY --from=builder /app/out /usr/share/nginx/html
+# Static export output. Granite splits `pnpm build` into a few targets:
+#   out/grab-football.{android,ios}.js  → Apps-in-Toss mobile bundles
+#   out/web/                            → Next.js static export for the web
+# Only the web/ subtree is what nginx should serve.
+COPY --from=builder /app/out/web /usr/share/nginx/html
 
 EXPOSE 80
 
