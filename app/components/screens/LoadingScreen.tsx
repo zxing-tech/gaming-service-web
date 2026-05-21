@@ -230,13 +230,13 @@ export function LoadingScreen() {
         />
       )}
       {/* Rating Badge */}
-      <Image
+      {/* <Image
         src={getAssetPath('/assets/GRAC_ALL.png')}
         alt="Rating"
         width={60}
         height={60}
         className="loading-screen__rating-badge absolute right-[16px] bottom-[16px] w-[60px] h-[60px] opacity-90 animate-fade-in z-[25]"
-      />
+      /> */}
     </div>
   );
 }

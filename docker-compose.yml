@@ -1,0 +1,17 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: snapshoot-web:latest
+    container_name: snapshoot-web
+    restart: unless-stopped
+    # Bound to loopback only — expose publicly via the host nginx reverse proxy.
+    ports:
+      - "127.0.0.1:3029:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
