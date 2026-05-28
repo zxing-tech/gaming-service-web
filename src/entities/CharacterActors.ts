@@ -1,6 +1,6 @@
 import type * as CANNON from 'cannon-es';
 import * as THREE from 'three';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { UniversalModelLoader } from '../utils/UniversalModelLoader';
 import { PLAYERS_CONFIG } from '../config/Players';
 import { bakeJerseyTexture } from '../utils/characterAppearance';
 
@@ -31,9 +31,7 @@ export class CharacterActors {
   }
 
   async load(): Promise<void> {
-    if (PLAYERS_CONFIG.kicker.sourceFormat !== 'fbx') return;
-
-    const loader = new FBXLoader(this.loadingManager);
+    const loader = new UniversalModelLoader(this.loadingManager);
     const appearance = PLAYERS_CONFIG.kicker.appearance;
     const applyKickerCustomization = (target: THREE.Object3D): Promise<void> => {
       const shirtColor = appearance?.shirt?.color;

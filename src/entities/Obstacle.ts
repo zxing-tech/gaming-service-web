@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { UniversalModelLoader } from '../utils/UniversalModelLoader';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as CANNON from 'cannon-es';
 import {
@@ -420,7 +420,7 @@ export class Obstacle {
     render: Extract<ObstacleBlueprint['render'], { kind: 'model' }>,
     group: THREE.Group
   ): void {
-    const loader = new FBXLoader(this.loadingManager);
+    const loader = new UniversalModelLoader(this.loadingManager);
     const idle: THREE.AnimationClip[] = [];
     const dive: THREE.AnimationClip[] = [];
 

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { UniversalModelLoader } from '../utils/UniversalModelLoader';
 import { gameEventBus } from '../../app/lib/gameEventBus';
 import { CategoryLogger } from '../utils/Logger';
 import { BALL_THEMES } from '../config/Ball';
@@ -47,6 +48,7 @@ export class AssetLoader {
   public async preloadAssets(): Promise<void> {
     const gltfLoader = new GLTFLoader(THREE.DefaultLoadingManager);
     const fbxLoader = new FBXLoader(THREE.DefaultLoadingManager);
+    const universalLoader = new UniversalModelLoader(THREE.DefaultLoadingManager);
     const textureLoader = new THREE.TextureLoader(THREE.DefaultLoadingManager);
 
 
@@ -120,14 +122,12 @@ export class AssetLoader {
       }
 
       if (render.kind === 'model') {
-        const urls =
-          render.sourceFormat === 'fbx'
-            ? [render.assetUrl, ...(render.extraAnimationUrls ?? [])]
-            : [render.assetUrl];
-        const loader = render.sourceFormat === 'fbx' ? fbxLoader : gltfLoader;
+        // Universal loader auto-dispatches by URL extension; preload the
+        // primary asset + any eager extras (e.g. keeper idle animation).
+        const urls = [render.assetUrl, ...(render.extraAnimationUrls ?? [])];
         urls.forEach((url) => {
           loadPromises.push(
-            loader.loadAsync(encodeURI(url))
+            universalLoader.loadAsync(encodeURI(url))
               .then(() => updateProgress())
               .catch((error) => {
                 this.gameLog.warn(`Failed to preload obstacle model: ${blueprint.id} ${url}`, error);
@@ -151,22 +151,17 @@ export class AssetLoader {
     });
 
 
-    const kickerIsFbx = PLAYERS_CONFIG.kicker.sourceFormat === 'fbx';
-    const kickerLoader = kickerIsFbx ? fbxLoader : gltfLoader;
-    const kickerUrl = kickerIsFbx
-      ? encodeURI(PLAYERS_CONFIG.kicker.assetUrl)
-      : PLAYERS_CONFIG.kicker.assetUrl;
     loadPromises.push(
-      kickerLoader.loadAsync(kickerUrl)
+      universalLoader.loadAsync(encodeURI(PLAYERS_CONFIG.kicker.assetUrl))
         .then(() => updateProgress())
         .catch((error) => {
           this.gameLog.warn(`Failed to preload kicker model`, error);
           updateProgress();
         })
     );
-    if (kickerIsFbx && PLAYERS_CONFIG.kicker.idleAssetUrl) {
+    if (PLAYERS_CONFIG.kicker.idleAssetUrl) {
       loadPromises.push(
-        fbxLoader.loadAsync(encodeURI(PLAYERS_CONFIG.kicker.idleAssetUrl))
+        universalLoader.loadAsync(encodeURI(PLAYERS_CONFIG.kicker.idleAssetUrl))
           .then(() => updateProgress())
           .catch((error) => {
             this.gameLog.warn(`Failed to preload kicker idle model`, error);
