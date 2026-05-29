@@ -11,12 +11,7 @@ import { PLAYERS_CONFIG } from '../config/Players';
 import { getAssetPath } from '../utils/assetPath';
 
 /** GLB obstacles — load on first spawn instead of blocking initial load. */
-const DEFERRED_OBSTACLE_MODEL_IDS = new Set([
-  'drum',
-  'shark',
-  'van',
-  'cokeBottle'
-]);
+const DEFERRED_OBSTACLE_MODEL_IDS = new Set<string>([]);
 
 const grassColorUrl = getAssetPath('/assets/grass/Grass005_1K-JPG_Color.jpeg');
 const crowdTextureUrl = getAssetPath('/assets/crowd/Gemini_Generated_Image_a8cqxoa8cqxoa8cq.png');

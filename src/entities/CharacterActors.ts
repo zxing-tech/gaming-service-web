@@ -5,8 +5,9 @@ import { PLAYERS_CONFIG } from '../config/Players';
 import { bakeJerseyTexture, forceBoneTextureForIOS, normalizeCharacterBrightness } from '../utils/characterAppearance';
 
 export class CharacterActors {
-  private static readonly STRIKER_IDLE_OFFSET_X = -0.26;
-  private static readonly STRIKER_IDLE_OFFSET_Z = 1.18;
+  private static readonly STRIKER_IDLE_OFFSET_X = PLAYERS_CONFIG.kicker.strikerOffset?.x ?? -0.26;
+  private static readonly STRIKER_IDLE_OFFSET_Z = PLAYERS_CONFIG.kicker.strikerOffset?.z ?? 1.18;
+  private static readonly STRIKER_Y_OFFSET = PLAYERS_CONFIG.kicker.yOffset ?? 0;
   // Fallback idle hold frame on kick clip when dedicated idle clip is unavailable.
   private static readonly FALLBACK_IDLE_NORMALIZED_TIME = 0.08;
   // Trigger ball launch at early contact frame of this kick animation.
@@ -54,6 +55,7 @@ export class CharacterActors {
         if (child instanceof THREE.Mesh) {
           child.castShadow = false;
           child.receiveShadow = false;
+          child.renderOrder = 2;
           if (child.material instanceof THREE.MeshStandardMaterial && child.material.map) {
             child.material.map.colorSpace = THREE.SRGBColorSpace;
           }
@@ -63,7 +65,7 @@ export class CharacterActors {
       forceBoneTextureForIOS(root);
       applyKickerCustomization(root);
 
-      root.scale.setScalar(0.85);
+      root.scale.setScalar(0.72);
       root.rotation.y = Math.PI;
       root.visible = true;
       this.scene.add(root);
@@ -106,6 +108,7 @@ export class CharacterActors {
             if (child instanceof THREE.Mesh) {
               child.castShadow = false;
               child.receiveShadow = false;
+              child.renderOrder = 2;
               if (child.material instanceof THREE.MeshStandardMaterial && child.material.map) {
                 child.material.map.colorSpace = THREE.SRGBColorSpace;
               }
@@ -114,7 +117,7 @@ export class CharacterActors {
           normalizeCharacterBrightness(idleRoot);
           forceBoneTextureForIOS(idleRoot);
           applyKickerCustomization(idleRoot);
-          idleRoot.scale.setScalar(0.85);
+          idleRoot.scale.setScalar(0.72);
           idleRoot.rotation.y = Math.PI;
           idleRoot.visible = false;
           this.scene.add(idleRoot);
@@ -149,13 +152,9 @@ export class CharacterActors {
 
     if (!isShotInProgress) {
       const x = ballPosition.x + CharacterActors.STRIKER_IDLE_OFFSET_X;
-      const y = 0;
+      const y = CharacterActors.STRIKER_Y_OFFSET;
       const z = ballPosition.z + CharacterActors.STRIKER_IDLE_OFFSET_Z;
-      this.strikerRoot.position.set(
-        ballPosition.x + CharacterActors.STRIKER_IDLE_OFFSET_X,
-        0,
-        ballPosition.z + CharacterActors.STRIKER_IDLE_OFFSET_Z
-      );
+      this.strikerRoot.position.set(x, y, z);
       if (this.strikerIdleRoot) {
         this.strikerIdleRoot.position.set(x, y, z);
       }

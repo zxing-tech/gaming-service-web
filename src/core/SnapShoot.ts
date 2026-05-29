@@ -202,7 +202,7 @@ export class SnapShoot {
     void this.assetLoader.preloadAssets();
 
     this.scene = new THREE.Scene();
-    this.scene.background = null;
+    this.scene.background = new THREE.Color(0x1a1a22);
     this.renderer = createRenderer(canvas);
     this.camera = createPerspectiveCamera(canvas);
     this.hdrPipeline = new HdrPipeline(this.renderer, this.scene, this.camera);

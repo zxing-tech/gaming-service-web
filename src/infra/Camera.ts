@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 2.4, 6.2);
+export const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 2.4, 5.5);
 export const DEFAULT_CAMERA_LOOKAT = new THREE.Vector3(0, 0.95, -5.9);
 
 // Follow-ball cinematic camera: ride behind and slightly above the ball during a shot.
@@ -13,7 +13,7 @@ export const BALL_FOLLOW_LERP_OUT = 0.09;
 
 export function createPerspectiveCamera(canvas: HTMLCanvasElement): THREE.PerspectiveCamera {
   const aspect = canvas.clientWidth / canvas.clientHeight;
-  const camera = new THREE.PerspectiveCamera(46, aspect, 0.1, 2000);
+  const camera = new THREE.PerspectiveCamera(56, aspect, 0.1, 2000);
   camera.position.copy(DEFAULT_CAMERA_POSITION);
   camera.lookAt(DEFAULT_CAMERA_LOOKAT);
   return camera;

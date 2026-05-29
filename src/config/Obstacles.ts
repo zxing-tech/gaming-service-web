@@ -5,17 +5,14 @@ import { GOAL_WIDTH } from './Goal';
  *  FBX via FBX2glTF; baseColor textures re-encoded to WebP q90 at original 4K resolution
  *  (visually identical, ~85% smaller); PBR factors normalized at conversion time so
  *  MeshStandardMaterial doesn't render skin/cloth as gray metal. */
-export const MIXAMO_KEEPER_FBX_BASE = getAssetPath('/assets/models/Goalkeeper Body Block (3).glb');
-/** Eager-loaded extras — required at boot so the keeper has a proper idle pose before the first shot. */
-export const MIXAMO_KEEPER_FBX_EXTRA = [
-  getAssetPath('/assets/models/Goalkeeper Idle.glb')
-] as const;
+export const MIXAMO_KEEPER_FBX_BASE = getAssetPath('/assets/models/Goalkeeper Idle (1).glb');
+/** Eager-loaded extras — animation clips merged onto primary skeleton. */
+export const MIXAMO_KEEPER_FBX_EXTRA = [] as const;
 /** Deferred extras — fetched in background after initial load. Animation-only files (their
  *  meshes are disposed once we extract clips), so the GLB has its textures stripped entirely. */
 export const MIXAMO_KEEPER_FBX_DEFERRED = [
-  getAssetPath('/assets/models/Goalkeeper Body Block (2).glb'),
-  getAssetPath('/assets/models/Goalkeeper Diving Save (3).glb'),
-  getAssetPath('/assets/models/Goalkeeper Diving Save (4).glb')
+  getAssetPath('/assets/models/Diving Save (7).glb'),
+  getAssetPath('/assets/models/Diving Save(8).glb')
 ] as const;
 
 /** Plane size in world units — sized to fit inside GOAL_HEIGHT (2) and GOAL_WIDTH (3) opening. */
@@ -27,14 +24,6 @@ export const KEEPER_VISUAL_HALF_WIDTH = keeperWallWidth / 2;
 /** Max |x| for keeper center position (small margin inside the goal mouth). */
 export const KEEPER_MAX_CENTER_OFFSET_X =
   GOAL_WIDTH / 2 - KEEPER_VISUAL_HALF_WIDTH - 0.06;
-const woodTextureUrl = getAssetPath('/assets/models/obstacle/wood.jpg');
-const whiteDroneTextureUrl = getAssetPath('/assets/models/obstacle/whiteDrone.png');
-const cokeModelUrl = getAssetPath('/assets/models/bottle/coke.glb');
-const drumModelUrl = getAssetPath('/assets/models/drum.glb');
-const vanModelUrl = getAssetPath('/assets/models/van.glb');
-const sharkModelUrl = getAssetPath('/assets/models/shark.glb');
-
-
 export type Axis = 'x' | 'y' | 'z';
 
 export type RangeValue = [number, number];
@@ -203,7 +192,7 @@ export const OBSTACLE_BLUEPRINTS: Record<string, ObstacleBlueprint> = {
       assetUrl: MIXAMO_KEEPER_FBX_BASE,
       extraAnimationUrls: MIXAMO_KEEPER_FBX_EXTRA,
       deferredAnimationUrls: MIXAMO_KEEPER_FBX_DEFERRED,
-      scale: 1.1
+      scale: 0.9
     },
     collider: {
       shape: 'box',
@@ -213,118 +202,6 @@ export const OBSTACLE_BLUEPRINTS: Record<string, ObstacleBlueprint> = {
     defaultTransform: {
       position: { y: 0 }
     }
-  },
-  woodVertical: {
-    id: 'woodVertical',
-    render: {
-      kind: 'primitive',
-      shape: 'plane',
-      size: { x: 0.6, y: 2.0 },
-      material: {
-        textureUrl: woodTextureUrl,
-        doubleSided: true,
-        transparent: true,
-        opacity: 1,
-        alphaTest: 0.01
-      }
-    },
-    collider: {
-      shape: 'box',
-      size: { x: 0.6, y: 2.0, z: 0.6 }
-    },
-    defaultTransform: {
-      position: { y: 1.0 }
-    }
-  },
-  woodHorizontal: {
-    id: 'woodHorizontal',
-    render: {
-      kind: 'primitive',
-      shape: 'plane',
-      size: { x: 3.0, y: 0.4 },
-      material: {
-        textureUrl: woodTextureUrl,
-        doubleSided: true,
-        transparent: true,
-        opacity: 1,
-        alphaTest: 0.01
-      }
-    },
-    collider: {
-      shape: 'box',
-      size: { x: 3.0, y: 0.4, z: 0.6 }
-    },
-    defaultTransform: {
-      position: { y: 0.3 }
-    }
-  },
-    whiteDrone: {
-    id: 'whiteDrone',
-    render: {
-      kind: 'primitive',
-      shape: 'plane',
-      size: { x: 1.0, y: 1.0 },
-      material: {
-        textureUrl: whiteDroneTextureUrl,
-        doubleSided: true,
-        transparent: true,
-        opacity: 1,
-        alphaTest: 0.01
-      }
-    },
-    collider: {
-      shape: 'box',
-      size: { x: 0.6, y: 0.5, z: 0.6 }
-    },
-    defaultTransform: {
-      position: { y: 0.8 }
-    }
-  },
-  drum :{
-	id: 'drum',
-	render: {
- 		kind: 'model',
-		assetUrl: drumModelUrl,
-		scale: 4.0,
-		pivotOffset: {y: -0.47},
-
-	},
-	 collider: {
-      shape: 'cylinder',
-	  radius: 0.33,
-	  height: 1.0,
-	  axis: 'y',
-    },
-    
-  },
-  shark :{
-	id: 'shark',
-	render: {
- 		kind: 'model',
-		assetUrl: sharkModelUrl,
-		scale: 0.49,
-		pivotOffset: {x: -0.7, y: 0.3, z: -1.0},
-
-	},
-	 collider: {
-      shape: 'box',
-      size: { x: 2.5, y: 0.6, z: 0.6 },
-    },
-    
-  },
-  van :{
-	id: 'van',
-	render: {
- 		kind: 'model',
-		assetUrl: vanModelUrl,
-		scale: 0.0081,
-		pivotOffset: { y: -0.75}
-	},
-	 collider: {
-      shape: 'box',
-      size: { x: 1.7, y: 1.7, z: 3.4 },
-    },
-    
   },
   cubeColor: {
     id: 'cubeColor',
@@ -382,24 +259,6 @@ export const OBSTACLE_BLUEPRINTS: Record<string, ObstacleBlueprint> = {
     },
     defaultTransform: {
       position: { y: 0.75 }
-    }
-  },
-  cokeBottle: {
-    id: 'cokeBottle',
-    render: {
-      kind: 'model',
-      assetUrl: cokeModelUrl,
-      scale: 0.2025,
-      pivotOffset: { y: 0 }
-    },
-    collider: {
-      shape: 'capsule',
-      radius: 0.18,
-      height: 0.9,
-      axis: 'y'
-    },
-    defaultTransform: {
-      position: { y: 0.45 }
     }
   },
   cylinderBasic: {

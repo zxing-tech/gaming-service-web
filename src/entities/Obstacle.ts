@@ -231,6 +231,8 @@ export class Obstacle {
   /** Mixamo FBX goalkeeper (merged clips). */
   private keeperMixer?: THREE.AnimationMixer;
   private keeperAnimRoot?: THREE.Object3D;
+  /** Y position set by alignKeeperFeetToGround — locked every frame so dive animations can't elevate the rig. */
+  private keeperGroundedY = 0;
   private keeperIdleClips: THREE.AnimationClip[] = [];
   private keeperCurrentAction?: THREE.AnimationAction;
   private keeperCurrentClip?: THREE.AnimationClip;
@@ -538,19 +540,36 @@ export class Obstacle {
    */
   private alignKeeperFeetToGround(primary: THREE.Object3D, group: THREE.Group): void {
     const CLEARANCE = 0.025;
-    primary.updateWorldMatrix(true, false);
+    primary.updateWorldMatrix(true, true);
     const bbox = new THREE.Box3().setFromObject(primary);
     const footWorld = new THREE.Vector3(bbox.min.x, bbox.min.y, bbox.min.z);
     const footLocal = footWorld.clone();
     group.worldToLocal(footLocal);
     primary.position.y -= footLocal.y;
     primary.position.y += CLEARANCE;
+    this.keeperGroundedY = primary.position.y;
+  }
+
+  /** Zero out the Y component of any root/hips position track so the animation
+   *  cannot lift the keeper off the ground regardless of how the GLB was exported. */
+  private stripRootMotionY(clip: THREE.AnimationClip): void {
+    for (const track of clip.tracks) {
+      if (!track.name.endsWith('.position')) continue;
+      const boneName = track.name.split('.')[0].toLowerCase();
+      if (!boneName.includes('hips') && boneName !== 'root') continue;
+      const values = (track as THREE.VectorKeyframeTrack).values;
+      for (let i = 1; i < values.length; i += 3) {
+        values[i] = 0;
+      }
+    }
   }
 
   private finalizeKeeperAnimationClips(idle: THREE.AnimationClip[], dive: THREE.AnimationClip[]): void {
     // Merge idle + dive so diving-save FBXs are available alongside body-block + idle loops.
     const combined: THREE.AnimationClip[] = [...idle, ...dive];
     if (!combined.length) return;
+
+    combined.forEach(clip => this.stripRootMotionY(clip));
 
     // Keep one representative clip per FBX bundle.
     const byBundle = new Map<string, THREE.AnimationClip>();
@@ -571,6 +590,7 @@ export class Obstacle {
     if (!this.keeperMixer || !this.keeperAnimRoot) return;
     const combined: THREE.AnimationClip[] = [...idle, ...dive];
     if (!combined.length) return;
+    combined.forEach(clip => this.stripRootMotionY(clip));
     const byBundle = new Map<string, THREE.AnimationClip>();
     for (const clip of combined) {
       const key = clip.name.includes('::') ? clip.name.slice(0, clip.name.indexOf('::')) : clip.name;
@@ -599,11 +619,9 @@ export class Obstacle {
     const action = (evt as { action?: THREE.AnimationAction }).action;
     if (!action || action !== this.keeperCurrentAction || !this.keeperMixer || !this.keeperAnimRoot) return;
     if (this.blueprintId === 'keeperWall') {
-      if (!this.keeperShotPhaseActive || !this.keeperMovementArmed) {
-        this.playKeeperIdleLoop();
-      } else {
-        // During active shot phase, keep final pose after one dive (do not replay).
-      }
+      // Always return to idle when a one-shot clip finishes — holding the final
+      // dive frame leaves the keeper frozen in a mid-air pose.
+      this.playKeeperIdleLoop();
       return;
     }
 
@@ -702,6 +720,9 @@ export class Obstacle {
     if (!this.keeperMixer || !this.keeperAnimRoot) return;
     const dt = Math.min(Math.max(deltaTime, 0), 0.05);
     this.keeperMixer.update(dt);
+    // Lock root Y so dive animations (which use bone rotations to go horizontal)
+    // cannot lift the keeper off the ground.
+    this.keeperAnimRoot.position.y = this.keeperGroundedY;
   }
 
   /** Between rounds — center on the line; idle stance (called before obstacle sync restarts tracking). */

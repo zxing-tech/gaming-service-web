@@ -221,6 +221,7 @@ export async function bakeJerseyTexture(
 ): Promise<void> {
   const mesh = findSubmesh(root, 'shirt');
   if (!mesh) return;
+
   const original = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
   if (!(original instanceof THREE.MeshStandardMaterial) && !(original instanceof THREE.MeshPhongMaterial)) return;
 
@@ -237,9 +238,6 @@ export async function bakeJerseyTexture(
   }
   if (!isFinite(uMin) || uMax <= uMin || vMax <= vMin) return;
 
-  // Find UV centroids of front-facing vs back-facing triangles. Mixamo's shirt unwrap puts
-  // front and back in distinct UV islands, so we want to target each separately rather than
-  // the overall bbox center (which lands on the sleeve/side).
   const centroids = getFrontBackUVCentroids(mesh);
 
   const ATLAS_SIZE = 1024;
@@ -289,7 +287,6 @@ export async function bakeJerseyTexture(
       const img = await loadHTMLImage(opts.logoUrl);
       if (img) {
         const logoSize = refSize * 0.28;
-        // Above number on body = canvas-left of centroid.
         ctx.save();
         ctx.translate(bxc - vertOffsetX, byc);
         ctx.rotate(PANEL_ROTATION);
@@ -300,7 +297,6 @@ export async function bakeJerseyTexture(
 
     if (opts.number != null) {
       const fontPx = Math.round(refSize * 0.42);
-      // Below logo (still upright on body) = canvas-right of where the logo is.
       ctx.save();
       ctx.translate(bxc + vertOffsetX * 0.4, byc);
       ctx.rotate(PANEL_ROTATION);
