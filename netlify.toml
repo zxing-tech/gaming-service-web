@@ -1,6 +1,16 @@
 [build]
-  command = "npm run build"
+  command = "pnpm build"
   publish = "out/web"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Static export: serve /index.html for any unknown path so the /admin hash router
+# and any future client-side routes resolve cleanly on hard refresh / direct links.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
 
 # Long-cache immutable assets on repeat visits (CDN + browser).
 [[headers]]
@@ -12,4 +22,3 @@
   for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=2592000"
-

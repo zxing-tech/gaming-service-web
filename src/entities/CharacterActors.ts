@@ -1,6 +1,6 @@
 import type * as CANNON from 'cannon-es';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { UniversalModelLoader } from '../utils/UniversalModelLoader';
 import { PLAYERS_CONFIG } from '../config/Players';
 import { bakeJerseyTexture, forceBoneTextureForIOS, normalizeCharacterBrightness } from '../utils/characterAppearance';
 
@@ -31,7 +31,7 @@ export class CharacterActors {
   }
 
   async load(): Promise<void> {
-    const loader = new GLTFLoader(this.loadingManager);
+    const loader = new UniversalModelLoader(this.loadingManager);
     const appearance = PLAYERS_CONFIG.kicker.appearance;
     /** Bake runs as fire-and-forget — the character is added to the scene immediately and the
      *  shirt texture is patched once the canvas is ready. Awaiting it on iOS WebKit has
@@ -48,9 +48,8 @@ export class CharacterActors {
       });
     };
     try {
-      const gltf = await loader.loadAsync(encodeURI(PLAYERS_CONFIG.kicker.assetUrl));
-      const root = gltf.scene;
-      const kickAnimations = gltf.animations;
+      const root = await loader.loadAsync(encodeURI(PLAYERS_CONFIG.kicker.assetUrl));
+      const kickAnimations = ((root as unknown) as { animations: THREE.AnimationClip[] }).animations ?? [];
       root.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           child.castShadow = false;
@@ -101,9 +100,8 @@ export class CharacterActors {
       // This avoids rig-mismatch T-pose because we don't retarget animations across rigs.
       if (!this.strikerIdleAction && PLAYERS_CONFIG.kicker.idleAssetUrl) {
         try {
-          const idleGltf = await loader.loadAsync(encodeURI(PLAYERS_CONFIG.kicker.idleAssetUrl));
-          const idleRoot = idleGltf.scene;
-          const idleAnimations = idleGltf.animations;
+          const idleRoot = await loader.loadAsync(encodeURI(PLAYERS_CONFIG.kicker.idleAssetUrl));
+          const idleAnimations = ((idleRoot as unknown) as { animations: THREE.AnimationClip[] }).animations ?? [];
           idleRoot.traverse((child) => {
             if (child instanceof THREE.Mesh) {
               child.castShadow = false;

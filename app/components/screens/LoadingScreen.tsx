@@ -58,6 +58,13 @@ export function LoadingScreen() {
     }
   });
 
+  // When the game-over modal appears, we must not be sitting on top of the
+  // canvas demanding a tap/swipe (covers the "already submitted" short-circuit
+  // and any other path that opens the modal before loading finishes).
+  useGameEvent('SHOW_GAME_OVER_MODAL', () => {
+    setStage('hidden');
+  });
+
   const transitionToStage2 = () => {
     setStage('tap');
     setTimeout(() => setTapOpacity(1), 200);
@@ -223,13 +230,13 @@ export function LoadingScreen() {
         />
       )}
       {/* Rating Badge */}
-      <Image
+      {/* <Image
         src={getAssetPath('/assets/GRAC_ALL.png')}
         alt="Rating"
         width={60}
         height={60}
         className="loading-screen__rating-badge absolute right-[16px] bottom-[16px] w-[60px] h-[60px] opacity-90 animate-fade-in z-[25]"
-      />
+      /> */}
     </div>
   );
 }

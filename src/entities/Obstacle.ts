@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { UniversalModelLoader } from '../utils/UniversalModelLoader';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as CANNON from 'cannon-es';
 import {
@@ -420,7 +421,7 @@ export class Obstacle {
     render: Extract<ObstacleBlueprint['render'], { kind: 'model' }>,
     group: THREE.Group
   ): void {
-    const loader = new GLTFLoader(this.loadingManager);
+    const loader = new UniversalModelLoader(this.loadingManager);
     const idle: THREE.AnimationClip[] = [];
     const dive: THREE.AnimationClip[] = [];
 
@@ -448,8 +449,9 @@ export class Obstacle {
     loader.load(
       encodeURI(render.assetUrl),
       (primaryGltf) => {
-        const primary = primaryGltf.scene;
-        pushClips(primaryGltf.animations, basenameFromAssetUrl(render.assetUrl));
+        const primary = primaryGltf;
+        const primaryAnims = ((primaryGltf as unknown) as { animations: THREE.AnimationClip[] }).animations ?? [];
+        pushClips(primaryAnims, basenameFromAssetUrl(render.assetUrl));
         primary.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             child.castShadow = false;
@@ -481,8 +483,8 @@ export class Obstacle {
             loader.load(
               encodeURI(url),
               (extraGltf) => {
-                pushClips(extraGltf.animations, basenameFromAssetUrl(url));
-                disposeSceneMeshes(extraGltf.scene);
+                pushClips(((extraGltf as unknown) as { animations: THREE.AnimationClip[] }).animations ?? [], basenameFromAssetUrl(url));
+                disposeSceneMeshes(extraGltf);
                 this.appendKeeperDeferredClips(idle, dive);
               },
               undefined,
@@ -504,8 +506,8 @@ export class Obstacle {
           loader.load(
             encodeURI(url),
             (extraGltf) => {
-              pushClips(extraGltf.animations, basenameFromAssetUrl(url));
-              disposeSceneMeshes(extraGltf.scene);
+              pushClips(((extraGltf as unknown) as { animations: THREE.AnimationClip[] }).animations ?? [], basenameFromAssetUrl(url));
+              disposeSceneMeshes(extraGltf);
               remaining -= 1;
               if (remaining === 0) {
                 this.finalizeKeeperAnimationClips(idle, dive);
