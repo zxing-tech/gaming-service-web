@@ -148,8 +148,8 @@ export function LoadingScreen() {
         className="loading-screen__title mb-20 text-center animate-fade-in-down-large transition-all duration-800 ease-out"
         style={{ transform: titleTransform, opacity: titleTransform ? 0 : 1 }}
       >
-        <h1 className="mx-6 text-[48px] leading-none font-extrabold tracking-tight text-white [text-shadow:0_4px_14px_rgba(0,0,0,0.25)]">
-          Penalty Kick!
+        <h1 className="mx-6 text-[48px] leading-tight font-extrabold tracking-tight text-white [text-shadow:0_4px_14px_rgba(0,0,0,0.25)]">
+          Kick Off with<br />Coca-Cola
         </h1>
       </div>
 
