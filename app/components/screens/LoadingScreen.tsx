@@ -18,16 +18,15 @@ const FOOTBALL_MESSAGES = [
 ];
 
 export function LoadingScreen() {
-  const loadingBackgroundUrl = getAssetPath('/assets/pexels-boom-12585891.jpg');
+  const loadingBackgroundUrl = getAssetPath('/assets/landing-bg.png');
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState(FOOTBALL_MESSAGES[0]);
-  const [stage, setStage] = useState<'loading' | 'tap' | 'swipe' | 'hiding' | 'hidden'>('loading');
-  
+  const [stage, setStage] = useState<'loading' | 'swipe' | 'hiding' | 'hidden'>('loading');
+
   // Animation states
   const [ballTransform, setBallTransform] = useState('');
   const [titleTransform, setTitleTransform] = useState('');
   const [containerOpacity, setContainerOpacity] = useState(1);
-  const [tapOpacity, setTapOpacity] = useState(0);
   const [ballOpacity, setBallOpacity] = useState(0);
   const [isShooting, setIsShooting] = useState(false);
 
@@ -66,21 +65,8 @@ export function LoadingScreen() {
   });
 
   const transitionToStage2 = () => {
-    setStage('tap');
-    setTimeout(() => setTapOpacity(1), 200);
-  };
-
-  const handleTap = () => {
-    if (stage !== 'tap') return;
-
-    // Unlock audio
-    gameEventBus.emit({ type: 'UNLOCK_AUDIO' });
-
-    setTapOpacity(0);
-    setTimeout(() => {
-      setStage('swipe');
-      setBallOpacity(1);
-    }, 500);
+    setStage('swipe');
+    setTimeout(() => setBallOpacity(1), 200);
   };
 
   const handlePointerDown = (e: React.PointerEvent | React.TouchEvent) => {
@@ -122,12 +108,15 @@ export function LoadingScreen() {
     // 1. Stop bounce first
     setIsShooting(true);
 
+    // Unlock audio on first user gesture (swipe)
+    gameEventBus.emit({ type: 'UNLOCK_AUDIO' });
+
     // 2. Start animation in next frame
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setBallTransform(`translate(${translateX}px, ${translateY}px) scale(0.3) rotate(${rotation}deg)`);
         setTitleTransform('translateY(-150px)');
-        
+
         // Start game
         gameEventBus.emit({ type: 'GAME_STARTED' });
 
@@ -148,7 +137,7 @@ export function LoadingScreen() {
       className={`loading-screen fixed inset-0 z-[20] flex w-full h-[100dvh] flex-col items-center justify-start pt-[18vh] transition-opacity duration-500 ease-out text-white overflow-hidden ${stage === 'hiding' ? 'pointer-events-none' : ''}`}
       style={{
         opacity: containerOpacity,
-        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.62)), url("${loadingBackgroundUrl}")`,
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.25)), url("${loadingBackgroundUrl}")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
@@ -160,7 +149,7 @@ export function LoadingScreen() {
         style={{ transform: titleTransform, opacity: titleTransform ? 0 : 1 }}
       >
         <h1 className="mx-6 text-[48px] leading-none font-extrabold tracking-tight text-white [text-shadow:0_4px_14px_rgba(0,0,0,0.25)]">
-          FreeKick!
+          Penalty Kick!
         </h1>
       </div>
 
@@ -182,23 +171,12 @@ export function LoadingScreen() {
             </span>
           </div>
         </div>
-        <div className="loading-screen__message min-h-[24px] text-center text-[20px] font-bold text-[rgba(255,255,255,0.95)] [text-shadow:0_1px_4px_rgba(0,0,0,0.2)] font-chiron">
+        <div className="loading-screen__message min-h-[24px] text-center text-[20px] font-bold text-[rgba(255,255,255,0.95)] [text-shadow:0_1px_4px_rgba(0,0,0,0.2)] font-russo">
           {message}
         </div>
       </div>
 
-      {/* Stage 2: Tap to Start */}
-      <div 
-        className="loading-screen__tap-to-start fixed inset-0 flex flex-col items-center justify-end pb-[10vh] transition-opacity duration-500 z-[37] cursor-pointer"
-        style={{ opacity: tapOpacity, pointerEvents: stage === 'tap' ? 'auto' : 'none' }}
-        onClick={handleTap}
-      >
-        <div className="text-[20px] font-bold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.2)] animate-pulse font-chiron">
-         Tap to Start
-        </div>
-      </div>
-
-      {/* Stage 3: Swipe to Start (Soccer Ball) */}
+      {/* Stage 2: Swipe to Start (Soccer Ball) */}
       <div 
         className="loading-screen__soccer-ball-container absolute left-1/2 bottom-[10vh] -translate-x-1/2 flex w-[min(90vw,360px)] flex-col items-center gap-8 px-4 transition-opacity duration-1000 z-[35]"
         style={{ opacity: ballOpacity, pointerEvents: 'none' }}
@@ -214,7 +192,7 @@ export function LoadingScreen() {
             transition: isShooting ? 'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none' 
           }}
         />
-        <div className="animate-pulse whitespace-nowrap text-center text-[20px] font-bold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.2)] font-chiron">
+        <div className="animate-pulse whitespace-nowrap text-center text-[20px] font-bold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.2)] font-russo">
           Swipe up to Start
         </div>
       </div>
