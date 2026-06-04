@@ -34,5 +34,7 @@ out
 .env.*.local
 .granite
 
-# local large files
+# local large build artifacts (Toss .ait bundles — often hundreds of MB)
+*.ait
+garb-football.ait
 Grab-football.ait

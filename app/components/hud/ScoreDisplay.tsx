@@ -127,7 +127,7 @@ export function ScoreDisplay() {
               alt=""
               className="mb-1 w-[min(90px,26vw)] shrink-0 object-contain opacity-95 landscape-xs:mb-0.5 landscape-xs:w-[min(66px,22vw)]"
             />
-            <div className="font-montserrat text-[clamp(1.75rem,10.5vw,3.5rem)] font-black leading-none tracking-wide text-white drop-shadow-[0_6px_10px_rgba(0,0,0,0.25)] landscape-xs:text-[clamp(1.5rem,9vw,2.25rem)] tabular-nums">
+            <div className="font-russo text-[clamp(1.75rem,10.5vw,3.5rem)] font-black leading-none tracking-wide text-white drop-shadow-[0_6px_10px_rgba(0,0,0,0.25)] landscape-xs:text-[clamp(1.5rem,9vw,2.25rem)] tabular-nums">
               {displayScore}
             </div>
           </div>

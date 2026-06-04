@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { createRenderer } from '../infra/Graphics';
+import { HdrPipeline } from '../infra/HdrPipeline';
 import {
   createPerspectiveCamera,
   DEFAULT_CAMERA_POSITION,
@@ -57,6 +58,7 @@ export class SnapShoot {
   private isNewRecord = false;
 
   private readonly renderer: THREE.WebGLRenderer;
+  private readonly hdrPipeline: HdrPipeline;
   private readonly scene: THREE.Scene;
   private readonly camera: THREE.PerspectiveCamera;
   private readonly world: CANNON.World;
@@ -200,9 +202,10 @@ export class SnapShoot {
     void this.assetLoader.preloadAssets();
 
     this.scene = new THREE.Scene();
-    this.scene.background = null;
+    this.scene.background = new THREE.Color(0x1a1a22);
     this.renderer = createRenderer(canvas);
     this.camera = createPerspectiveCamera(canvas);
+    this.hdrPipeline = new HdrPipeline(this.renderer, this.scene, this.camera);
     configureSceneLighting(this.scene);
 
     const { world, materials } = createPhysicsWorld();
@@ -411,6 +414,7 @@ export class SnapShoot {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
+    this.hdrPipeline.setSize(width, height);
     this.debugVisualizer.handleResize(width, height);
     this.field.resizeGroundLogoForViewport();
   }
@@ -443,7 +447,7 @@ export class SnapShoot {
     this.debugVisualizer.updateColliderVisuals();
     this.debugVisualizer.updateSwipeDebugLine();
 
-    this.renderer.render(this.scene, this.camera);
+    this.hdrPipeline.render();
   };
 
   private updateCameraFollow(deltaTime: number): void {
@@ -590,6 +594,7 @@ export class SnapShoot {
     this.debugVisualizer.dispose();
     this.difficultyManager.dispose();
     this.difficultyManager.dispose();
+    this.hdrPipeline.dispose();
 
 
     this.audio.stopMusic();

@@ -36,7 +36,7 @@ The codebase is intentionally split into two layers that talk to each other only
 - `src/core/GameStateService.ts` is a localStorage-backed singleton for persisted state (best score, selected tier, audio prefs, ball theme).
 - `src/shooting/` is a pure, testable pipeline: `SwipeNormalizer → ShotAnalyzer → ShotParameters → VelocityCalculator + SpinCalculator`, wrapped by `ExecuteShot.ts`. `CurveForceSystem` applies per-frame Magnus-style force during flight.
 - `src/config/*.ts` holds **all** tunables (gameplay, physics, difficulty tiers, prize tiers, ad IDs). `GAME_CONFIG` (`src/config/Game.ts`) carries session-wide constants like `totalLives` and physics `timeStep`. `TierDifficulty.ts` defines Easy/Medium/Hard tier unlocks gated by best score. Treat these as the source of truth — do not hardcode equivalents elsewhere.
-- `src/entities/` — `Ball`, `Goal/GoalNet`, `Obstacle`, `CharacterActors` (kicker + goalkeeper FBX rigs).
+- `src/entities/` — `Ball`, `Goal/GoalNet`, `Obstacle`, `CharacterActors` (kicker + goalkeeper Mixamo GLB rigs).
 - `src/infra/` — `Graphics` (renderer factory), `Camera`, `Lighting`, `Audio` (AudioManager).
 - `src/physics/World.ts` builds the Cannon-es world and shared materials (ball, ground).
 - `src/utils/Logger.ts` exposes `CategoryLogger` — prefer `new CategoryLogger('Foo')` over `console.log` in engine code (auto-suppressed in production).
@@ -66,6 +66,59 @@ The codebase is intentionally split into two layers that talk to each other only
 - Toss-specific behavior is feature-detected at runtime via `src/utils/TossEnvironment.ts` (`isTossApp`, `isTossGameCenterAvailable`). Outside the Toss UA the game still runs but skips Toss-only paths (game-center login in `GameLoader.ts`, interstitial ads).
 - `GameLoader.ts` currently force-mutes both music and SFX on boot (`setMusicEnabled(false)` / `setSfxEnabled(false)`) — intentional, not a bug. Remove only if explicitly asked.
 - Pause behavior: when the document becomes hidden the game emits `SHOW_PAUSE_MODAL` on return — required by the Apps-in-Toss guideline that audio must not play in the background.
+
+## Character asset pipeline (Mixamo FBX → GLB + WebP)
+
+Character rigs (kicker + goalkeeper) ship as **GLB**, not the source FBX. The conversion is a one-time offline pipeline that cuts boot-blocking download from ~206 MB to ~25 MB (~88%) while keeping 4K texture detail intact. Source FBX files are kept on disk (`public/assets/models/*.fbx`, ~354 MB total) as backup but are **not referenced by code**.
+
+### Files (rendered vs animation-only)
+
+The keeper bundle loads multiple GLB files. Only one of them has its mesh rendered; the rest are loaded purely to harvest `AnimationClip`s and their meshes are immediately `disposeSceneMeshes()`'d. This shapes the conversion:
+
+| File | Mode | Size | Why |
+|---|---|---|---|
+| `Strike Foward Jog.glb` | rendered (kicker kick) | ~8 MB | Has WebP-encoded 4K diffuse + normal textures |
+| `Happy Idle (2).glb` | rendered (kicker idle) | ~8 MB | Separate actor — switches in when kick clip ends |
+| `Goalkeeper Body Block (3).glb` | rendered (keeper primary) | ~7 MB | Primary keeper mesh + idle animation |
+| `Goalkeeper Idle.glb` | anim-only | ~2 MB | Textures stripped — mesh disposed at runtime |
+| `Goalkeeper Body Block (2).glb` | anim-only | ~2 MB | Same — animation clip only |
+| `Goalkeeper Diving Save (3).glb` | anim-only (deferred) | ~2 MB | Background-loaded after game starts |
+| `Goalkeeper Diving Save (4).glb` | anim-only (deferred) | ~2 MB | Same |
+
+The split between **eager extras** (`MIXAMO_KEEPER_FBX_EXTRA`, loaded at boot) and **deferred extras** (`MIXAMO_KEEPER_FBX_DEFERRED`, loaded after boot) is defined in `src/config/Obstacles.ts`. The legacy `MIXAMO_KEEPER_FBX_*` symbol names point at GLB URLs now despite the names — keep the name to avoid touching every import.
+
+### What the conversion does (and why)
+
+For **rendered** files the offline pipeline:
+1. **FBX → GLB** via `FBX2glTF -b` (Meta's tool, Linux binary). The format change alone saves ~20%.
+2. **PNG → WebP q90** via `@gltf-transform/functions::textureCompress` with sharp encoder. Resolution **stays at 4K** — only the encoding changes. This is the single biggest win: ~95% of FBX size is embedded PNG textures (16 MB diffuse + 22 MB normal + 2 MB metallic-rough + 5 MB hair). WebP q90 is visually indistinguishable at game distance but ~6-7× smaller.
+3. **Drop metallic-roughness / emissive / occlusion maps** — they don't read at small mobile render sizes.
+4. **Normalize PBR factors** at conversion time: `metallicFactor=0`, `roughnessFactor=0.85`, `baseColorFactor=[1,1,1,1]`. FBX2glTF writes broken defaults (`metallicFactor=1`, `roughnessFactor=1`, `baseColorFactor=[0.8,0.8,0.8]`) which under MeshStandardMaterial + ACES tone mapping render skin/cloth as "gray metal". Fix at the source, not at runtime.
+
+For **animation-only** files the pipeline strips *all* textures (`material.setBaseColorTexture(null)` and friends, then dispose). Geometry is preserved because `disposeSceneMeshes` runs at runtime AFTER `AnimationClip`s are extracted — clips reference bones, not geometry, so stripping textures has no effect on animation.
+
+In both modes `prune()` is called with `propertyTypes: [TEXTURE, MATERIAL, TEXTURE_INFO]` only. **Never include ACCESSOR in the prune list** — UV vertex attributes get aggressively cleaned otherwise, breaking the runtime jersey bake which reads `mesh.geometry.attributes.uv`.
+
+### Runtime-side gotchas the GLB switch introduced
+
+- **Unit scale.** FBX2glTF auto-converts FBX cm → glTF meters. The character bbox goes from ~180 units tall to ~1.8 units. Every scale value tuned for the FBX-era now needs ×100:
+  - Kicker: `setScalar(0.0085) → setScalar(0.85)` in `CharacterActors.ts`
+  - Keeper: `scale: 0.011 → scale: 1.1` in `keeperWall` blueprint
+  - Plane decal sizes in `characterAppearance.ts`: `LOGO_SIZE_LOCAL: 22 → 0.22`, `BACK_NUMBER_SIZE_LOCAL: 32 → 0.32`, all *_DEPTH_LOCAL / *_VERTICAL_LOCAL similarly. Get this wrong and the decal balloons into a multi-meter wall that occludes the keeper.
+- **Material shading model.** GLTFLoader always returns `MeshStandardMaterial` (PBR). FBXLoader-era code rendered with `MeshPhongMaterial` (legacy) — which the textures were authored against. Under ACES tone mapping the PBR diffuse term reads brighter / flatter and looks "washed out". `normalizeCharacterBrightness()` in `characterAppearance.ts` converts each character material back to `MeshPhongMaterial` (white color, shininess 0, black specular) to match the FBX-era render. Bake/tint code accepts both material types so the swap is transparent.
+- **iOS SkinnedMesh visibility.** iOS WebKit silently drops SkinnedMeshes whose bone matrices exceed a driver-side uniform array threshold. `forceBoneTextureForIOS()` calls `skeleton.computeBoneTexture()` on each SkinnedMesh post-load, forcing matrices to upload as a `DataTexture` instead. Called from both `CharacterActors` (×2 — kick + idle FBX roots) and `Obstacle.loadKeeperBundle`. Safe no-op on non-iOS platforms.
+- **Keeper bundle detection.** The blueprint discriminator is no longer `render.sourceFormat === 'fbx'`. The keeper-style bundle path (primary mesh + extra animation files) is now triggered by `render.extraAnimationUrls?.length || render.deferredAnimationUrls?.length` in `Obstacle.loadModel()`.
+- **`attachKeeperGloves()` is removed.** It created a `SphereGeometry(0.08)` per hand bone that was microscopic under the FBX cm-scaled rig (essentially invisible) but renders as a ~9 cm white ball at the GLB meter-scale. The GLB diffuse texture already includes textured hands; the placeholder is redundant.
+
+### Re-running the conversion
+
+The conversion script lives outside the repo (created in `tmp-glb/` during the migration and deleted after). If a re-run is needed (e.g., new Mixamo character, new animation):
+
+1. Drop the source FBX in `public/assets/models/`.
+2. Install tooling: `npm install @gltf-transform/core @gltf-transform/functions @gltf-transform/extensions sharp` in a scratch directory.
+3. Use Meta's `FBX2glTF -b -i input.fbx -o output` to produce raw GLB.
+4. Run a glTF Transform script: drop unused texture slots → `textureCompress({encoder: sharp, targetFormat: 'webp', quality: 90})` for rendered files (or strip all textures for anim-only) → set `metallicFactor=0`, `roughnessFactor=0.85`, `baseColorFactor=[1,1,1,1]` on every material → `prune({propertyTypes: [TEXTURE, MATERIAL, TEXTURE_INFO]})`.
+5. Verify with `gltf-transform inspect <file>` that mesh names (`Ch42_Shirt`, `Ch38_Body` etc.) and `TEXCOORD_0` attribute are preserved — both are runtime contracts.
 
 ## Conventions specific to this repo
 

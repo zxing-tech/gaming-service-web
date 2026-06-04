@@ -11,12 +11,7 @@ import { PLAYERS_CONFIG } from '../config/Players';
 import { getAssetPath } from '../utils/assetPath';
 
 /** GLB obstacles — load on first spawn instead of blocking initial load. */
-const DEFERRED_OBSTACLE_MODEL_IDS = new Set([
-  'drum',
-  'shark',
-  'van',
-  'cokeBottle'
-]);
+const DEFERRED_OBSTACLE_MODEL_IDS = new Set<string>([]);
 
 const grassColorUrl = getAssetPath('/assets/grass/Grass005_1K-JPG_Color.jpeg');
 const crowdTextureUrl = getAssetPath('/assets/crowd/Gemini_Generated_Image_a8cqxoa8cqxoa8cq.png');
@@ -62,8 +57,7 @@ export class AssetLoader {
       if (b.render.kind !== 'model') return;
       if (DEFERRED_OBSTACLE_MODEL_IDS.has(b.id)) return;
       const r = b.render;
-      obstacleModelAssetCount +=
-        r.sourceFormat === 'fbx' ? 1 + (r.extraAnimationUrls?.length ?? 0) : 1;
+      obstacleModelAssetCount += 1 + (r.extraAnimationUrls?.length ?? 0);
     });
     const obstacleTextureCount = obstacleBlueprints.filter(
       b => b.render.kind === 'primitive' && b.render.material?.textureUrl
@@ -169,7 +163,7 @@ export class AssetLoader {
           })
       );
     }
-    // Goalkeeper FBX is already loaded via keeperWall blueprint (same files).
+    // Goalkeeper GLB is already loaded via keeperWall blueprint (same files).
 
     loadPromises.push(
       textureLoader.loadAsync(grassColorUrl)

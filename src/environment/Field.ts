@@ -118,7 +118,7 @@ export class Field {
     );
     baseLogo.rotation.x = -Math.PI / 2;
     baseLogo.position.set(0, 0.016, layout.z);
-    baseLogo.renderOrder = 2;
+    baseLogo.renderOrder = 0;
     scene.add(baseLogo);
     this.groundLogoMeshes.push(baseLogo);
 
@@ -136,7 +136,7 @@ export class Field {
     );
     glowLogo.rotation.x = -Math.PI / 2;
     glowLogo.position.set(0, 0.018, layout.z);
-    glowLogo.renderOrder = 3;
+    glowLogo.renderOrder = 1;
     scene.add(glowLogo);
     this.groundLogoMeshes.push(glowLogo);
   }

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RENDERING_CONFIG } from '../config/Rendering';
 
 export interface SceneLighting {
   ambient: THREE.AmbientLight;
@@ -8,13 +9,19 @@ export interface SceneLighting {
 }
 
 export function configureSceneLighting(scene: THREE.Scene): SceneLighting {
-  const ambient = new THREE.AmbientLight(0xffffff, 0.99);
+  const { lighting } = RENDERING_CONFIG;
+
+  const ambient = new THREE.AmbientLight(0xffffff, lighting.ambient);
   scene.add(ambient);
 
-  const hemisphere = new THREE.HemisphereLight(0xd8f1de, 0x3a6b46, 0.6);
+  const hemisphere = new THREE.HemisphereLight(
+    lighting.hemisphereSky,
+    lighting.hemisphereGround,
+    lighting.hemisphere,
+  );
   scene.add(hemisphere);
 
-  const directional = new THREE.DirectionalLight(0xffffff, 1.);
+  const directional = new THREE.DirectionalLight(0xffffff, lighting.directional);
   directional.position.set(5, 20, 5);
   directional.castShadow = true;
   directional.shadow.mapSize.width = 2048;
@@ -28,7 +35,7 @@ export function configureSceneLighting(scene: THREE.Scene): SceneLighting {
   directional.shadow.normalBias = 0.03;
   scene.add(directional);
 
-  const point = new THREE.PointLight(0xffffff, 1, 20);
+  const point = new THREE.PointLight(0xffffff, lighting.point, 20);
   point.position.set(-6, 12, 18);
   point.castShadow = true;
   point.shadow.mapSize.width = 1024;
@@ -36,12 +43,12 @@ export function configureSceneLighting(scene: THREE.Scene): SceneLighting {
   point.shadow.bias = -0.0003;
   scene.add(point);
 
-  const rim = new THREE.PointLight(0xb0d8ff, 10, 90);
+  const rim = new THREE.PointLight(lighting.rimColor, lighting.rim, lighting.rimDistance);
   rim.position.set(-12, 15, -5);
   scene.add(rim);
 
 
-  const goalFrontLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  const goalFrontLight = new THREE.DirectionalLight(0xffffff, lighting.goalFront);
   goalFrontLight.position.set(0, 3, 10);
   goalFrontLight.target.position.set(0, 1, -6);
   scene.add(goalFrontLight);

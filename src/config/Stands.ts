@@ -33,12 +33,12 @@ export interface StandsConfig {
 export const STANDS_CONFIG: StandsConfig = {
   geometry: {
     width: 72,           // keep wide horizontal coverage behind the goal
-    height: 8,           // slightly taller to cover top-edge whitespace
+    height: 14,          // taller to cover top-edge gap from wider FOV
     depth: 20            // small increase to keep smooth top coverage
   },
   position: {
     x: 0,
-    y: 1.25,
+    y: 3.5,
     zOffset: -11.0        // move much farther back for clearly smaller audience
   },
   angle: {

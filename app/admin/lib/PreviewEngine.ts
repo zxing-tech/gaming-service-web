@@ -19,6 +19,8 @@ import {
 import { GOAL_DEPTH, GOAL_HEIGHT, GOAL_WIDTH, POST_RADIUS } from '../../../src/config/Goal';
 import { GOAL_NET_CONFIG } from '../../../src/config/Net';
 import type { DifficultyLevelConfig } from '../../../src/config/Difficulty';
+import { configureRendererColorPipeline } from '../../../src/infra/Graphics';
+import { HdrPipeline } from '../../../src/infra/HdrPipeline';
 
 const GOAL_Z = GOAL_DEPTH;
 const GOAL_REAR_Z = GOAL_DEPTH - GOAL_NET_CONFIG.layout.depthBottom;
@@ -379,6 +381,7 @@ export class LevelPreviewEngine {
   private readonly container: HTMLElement;
   private readonly obstacleConfigs: ObstacleInstanceConfig[];
   private readonly renderer: THREE.WebGLRenderer;
+  private readonly hdrPipeline: HdrPipeline;
   private readonly scene: THREE.Scene;
   private readonly camera: THREE.PerspectiveCamera;
   private readonly obstacles: PreviewObstacle[] = [];
@@ -396,12 +399,15 @@ export class LevelPreviewEngine {
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
+    configureRendererColorPipeline(this.renderer);
     this.renderer.domElement.classList.add('w-full', 'h-full', 'block', 'rounded-xl');
     this.container.appendChild(this.renderer.domElement);
 
     this.camera = new THREE.PerspectiveCamera(55, 1, 0.1, 50);
     this.camera.position.set(0, 1.5, 3.2);
     this.camera.lookAt(0, 0.5, GOAL_Z);
+
+    this.hdrPipeline = new HdrPipeline(this.renderer, this.scene, this.camera);
 
     this.addLights();
     this.addGround();
@@ -417,6 +423,7 @@ export class LevelPreviewEngine {
 
   dispose() {
     this.resizeObserver.disconnect();
+    this.hdrPipeline.dispose();
     this.container.removeChild(this.renderer.domElement);
     this.renderer.dispose();
   }
@@ -550,6 +557,7 @@ export class LevelPreviewEngine {
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
     this.renderer.setSize(width, height, false);
+    this.hdrPipeline.setSize(width, height);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
   }
@@ -563,6 +571,6 @@ export class LevelPreviewEngine {
       obstacle.update(deltaTime);
     }
 
-    this.renderer.render(this.scene, this.camera);
+    this.hdrPipeline.render();
   }
 }

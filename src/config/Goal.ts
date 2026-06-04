@@ -6,7 +6,7 @@ export interface GoalConfig {
 }
 
 export const GOAL_CONFIG: GoalConfig = {
-  width: 5.0, // 7.32 for realistic
+  width: 5.8, // 7.32 for realistic
   height: 2.45, // 2.44 for realistic
   depth: -6, // -11 for realistic
   postRadius: 0.05 // 0.06 for realistic

@@ -2,11 +2,12 @@ import type * as CANNON from 'cannon-es';
 import * as THREE from 'three';
 import { UniversalModelLoader } from '../utils/UniversalModelLoader';
 import { PLAYERS_CONFIG } from '../config/Players';
-import { bakeJerseyTexture } from '../utils/characterAppearance';
+import { bakeJerseyTexture, forceBoneTextureForIOS, normalizeCharacterBrightness } from '../utils/characterAppearance';
 
 export class CharacterActors {
-  private static readonly STRIKER_IDLE_OFFSET_X = -0.26;
-  private static readonly STRIKER_IDLE_OFFSET_Z = 1.18;
+  private static readonly STRIKER_IDLE_OFFSET_X = PLAYERS_CONFIG.kicker.strikerOffset?.x ?? -0.26;
+  private static readonly STRIKER_IDLE_OFFSET_Z = PLAYERS_CONFIG.kicker.strikerOffset?.z ?? 1.18;
+  private static readonly STRIKER_Y_OFFSET = PLAYERS_CONFIG.kicker.yOffset ?? 0;
   // Fallback idle hold frame on kick clip when dedicated idle clip is unavailable.
   private static readonly FALLBACK_IDLE_NORMALIZED_TIME = 0.08;
   // Trigger ball launch at early contact frame of this kick animation.
@@ -33,10 +34,14 @@ export class CharacterActors {
   async load(): Promise<void> {
     const loader = new UniversalModelLoader(this.loadingManager);
     const appearance = PLAYERS_CONFIG.kicker.appearance;
-    const applyKickerCustomization = (target: THREE.Object3D): Promise<void> => {
+    /** Bake runs as fire-and-forget — the character is added to the scene immediately and the
+     *  shirt texture is patched once the canvas is ready. Awaiting it on iOS WebKit has
+     *  historically deadlocked under memory pressure (image load never resolves), which left
+     *  the kicker off-scene entirely. */
+    const applyKickerCustomization = (target: THREE.Object3D): void => {
       const shirtColor = appearance?.shirt?.color;
-      if (shirtColor == null) return Promise.resolve();
-      return bakeJerseyTexture(target, {
+      if (shirtColor == null) return;
+      void bakeJerseyTexture(target, {
         color: shirtColor,
         logoUrl: appearance?.jerseyBake?.logoUrl,
         number: appearance?.jerseyBake?.number,
@@ -45,18 +50,22 @@ export class CharacterActors {
     };
     try {
       const root = await loader.loadAsync(encodeURI(PLAYERS_CONFIG.kicker.assetUrl));
+      const kickAnimations = ((root as unknown) as { animations: THREE.AnimationClip[] }).animations ?? [];
       root.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           child.castShadow = false;
           child.receiveShadow = false;
+          child.renderOrder = 2;
           if (child.material instanceof THREE.MeshStandardMaterial && child.material.map) {
             child.material.map.colorSpace = THREE.SRGBColorSpace;
           }
         }
       });
-      await applyKickerCustomization(root);
+      normalizeCharacterBrightness(root);
+      forceBoneTextureForIOS(root);
+      applyKickerCustomization(root);
 
-      root.scale.setScalar(0.0085);
+      root.scale.setScalar(0.72);
       root.rotation.y = Math.PI;
       root.visible = true;
       this.scene.add(root);
@@ -64,7 +73,7 @@ export class CharacterActors {
       this.strikerRoot = root;
       this.strikerMixer = new THREE.AnimationMixer(root);
 
-      const kickClip = root.animations[0];
+      const kickClip = kickAnimations[0];
       if (kickClip) {
         const action = this.strikerMixer.clipAction(kickClip, root);
         action.enabled = true;
@@ -74,8 +83,8 @@ export class CharacterActors {
         this.strikerKickAction = action;
       }
 
-      // Prefer an idle clip from the same FBX rig (most reliable).
-      const inlineIdleClip = root.animations.find((clip, idx) => {
+      // Prefer an idle clip from the same rig (most reliable).
+      const inlineIdleClip = kickAnimations.find((clip, idx) => {
         if (idx === 0) return false;
         const n = clip.name.toLowerCase();
         return n.includes('idle') || n.includes('stand');
@@ -89,29 +98,33 @@ export class CharacterActors {
         this.strikerIdleAction = idleAction;
       }
 
-      // Strong fallback: load external idle FBX as a separate actor/root.
+      // Strong fallback: load external idle GLB as a separate actor/root.
       // This avoids rig-mismatch T-pose because we don't retarget animations across rigs.
       if (!this.strikerIdleAction && PLAYERS_CONFIG.kicker.idleAssetUrl) {
         try {
           const idleRoot = await loader.loadAsync(encodeURI(PLAYERS_CONFIG.kicker.idleAssetUrl));
+          const idleAnimations = ((idleRoot as unknown) as { animations: THREE.AnimationClip[] }).animations ?? [];
           idleRoot.traverse((child) => {
             if (child instanceof THREE.Mesh) {
               child.castShadow = false;
               child.receiveShadow = false;
+              child.renderOrder = 2;
               if (child.material instanceof THREE.MeshStandardMaterial && child.material.map) {
                 child.material.map.colorSpace = THREE.SRGBColorSpace;
               }
             }
           });
-          await applyKickerCustomization(idleRoot);
-          idleRoot.scale.setScalar(0.0085);
+          normalizeCharacterBrightness(idleRoot);
+          forceBoneTextureForIOS(idleRoot);
+          applyKickerCustomization(idleRoot);
+          idleRoot.scale.setScalar(0.72);
           idleRoot.rotation.y = Math.PI;
           idleRoot.visible = false;
           this.scene.add(idleRoot);
           this.strikerIdleRoot = idleRoot;
 
           this.strikerIdleMixer = new THREE.AnimationMixer(idleRoot);
-          const idleClip = idleRoot.animations[0];
+          const idleClip = idleAnimations[0];
           if (idleClip) {
             const idleAction = this.strikerIdleMixer.clipAction(idleClip, idleRoot);
             idleAction.enabled = true;
@@ -126,7 +139,7 @@ export class CharacterActors {
 
       this.playIdleLoop();
     } catch (error) {
-      console.warn('[CharacterActors] Failed to load striker FBX', error);
+      console.warn('[CharacterActors] Failed to load striker GLB', error);
     }
   }
 
@@ -139,13 +152,9 @@ export class CharacterActors {
 
     if (!isShotInProgress) {
       const x = ballPosition.x + CharacterActors.STRIKER_IDLE_OFFSET_X;
-      const y = 0;
+      const y = CharacterActors.STRIKER_Y_OFFSET;
       const z = ballPosition.z + CharacterActors.STRIKER_IDLE_OFFSET_Z;
-      this.strikerRoot.position.set(
-        ballPosition.x + CharacterActors.STRIKER_IDLE_OFFSET_X,
-        0,
-        ballPosition.z + CharacterActors.STRIKER_IDLE_OFFSET_Z
-      );
+      this.strikerRoot.position.set(x, y, z);
       if (this.strikerIdleRoot) {
         this.strikerIdleRoot.position.set(x, y, z);
       }
