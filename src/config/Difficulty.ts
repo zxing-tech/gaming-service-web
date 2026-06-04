@@ -35,7 +35,13 @@ export const DIFFICULTY_LEVELS: DifficultyLevelConfig[] = [
   {
     threshold: 0,
     name: '0-0-no-obstacles',
-    obstacles: []
+    obstacles: [
+      {
+        blueprintId: 'keeperWall',
+        transform: { position: { x: 0, z: -5.2 } },
+        behavior: { type: 'static' }
+      }
+    ]
   },
 
   /* ============================================

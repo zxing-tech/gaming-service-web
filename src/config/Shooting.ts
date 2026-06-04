@@ -45,7 +45,7 @@ export interface ShotTargetConfig {
 }
 
 export const SHOT_TARGET_CONFIG: ShotTargetConfig = {
-  horizontalMargin: -0.32,
+  horizontalMargin: 0.28,
   verticalMarginTop: -0.28,
   verticalMarginBottom: 0.82,
   depth: null

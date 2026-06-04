@@ -43,7 +43,7 @@ export const TIER_DIFFICULTY_CONFIGS: Record<TierId, TierDifficultyConfig> = {
     unlockBestScore: 0,
     difficultyAnchorScore: 1,
     // Easy: slightly tougher than before.
-    keeperPatrolSpeed: 1.2,
+    keeperPatrolSpeed: 1.5,
     keeperPatrolRange: [-K * 0.84, K * 0.84],
     additionalObstacleCount: 0,
     shotResetMs: 2600,
