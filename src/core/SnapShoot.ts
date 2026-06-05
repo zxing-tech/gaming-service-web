@@ -623,10 +623,8 @@ export class SnapShoot {
 
   /** Auto tier ramp by current run score. */
   private resolveTierByScore(score: number): TierId {
-    // Requested ranges:
-    // Easy: 0-10, Intermediate: 11-19, Hard: 20+
+    // 2 tiers: Medium (0–19), Hard (20+)
     if (score >= 20) return 3;
-    if (score >= 11) return 2;
     return 1;
   }
 

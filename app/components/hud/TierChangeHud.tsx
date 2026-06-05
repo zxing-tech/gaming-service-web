@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameEvent } from '@/hooks/useGameEvent';
 
-const TIER_LABEL: Record<2 | 3, string> = {
-  2: 'Intermediate',
+const TIER_LABEL: Record<1 | 2 | 3, string> = {
+  1: 'Medium',
+  2: 'Medium',
   3: 'Hard',
 };
 
@@ -21,7 +22,7 @@ export function TierChangeHud() {
   };
 
   useGameEvent('TIER_CHANGED', (event) => {
-    if (event.tierId === 1) return;
+    if (event.tierId === 1) return; // no banner on reset back to Medium
     clearTimers();
     setLabel(TIER_LABEL[event.tierId as 2 | 3]);
     setPhase('in');

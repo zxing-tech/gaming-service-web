@@ -8,7 +8,7 @@ export const GAME_CONFIG = {
    */
   session: {
 
-    totalLives: 3,
+    totalLives: 2,
 
     topPrizePoints: 10,
 
