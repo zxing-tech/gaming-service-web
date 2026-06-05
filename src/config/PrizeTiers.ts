@@ -92,16 +92,29 @@ export function resolvePrizeTierConfig(inputTier: TierId | number | undefined | 
   return PRIZE_TIER_CONFIGS[DEFAULT_PRIZE_TIER_ID];
 }
 
-export function resolvePrizeTierByScore(finalScore: number): PrizeTierConfig {
+export function resolvePrizeTierByScore(finalScore: number): PrizeTierConfig | null {
+  if (finalScore === 0) return null;
   if (finalScore >= 20) return PRIZE_TIER_CONFIGS[3];
-  if (finalScore >= 11) return PRIZE_TIER_CONFIGS[2];
-  return PRIZE_TIER_CONFIGS[1];
+  return PRIZE_TIER_CONFIGS[1]; // score 1–19 → Medium
 }
 
 export function buildPrizeAwardResult(
   inputTier: TierId | number | undefined | null,
   finalScore: number
 ): PrizeAwardResult {
+  // Score 0 → no prize
+  if (finalScore === 0) {
+    return {
+      tierId: 1,
+      tierName: 'No Prize',
+      prizePoolLabel: 'No Prize',
+      topPrizeReached: false,
+      topPrizePoints: 0,
+      topPrizeCode: '',
+      topPrizeLabel: 'Not Redeemed',
+    };
+  }
+
   const config = resolvePrizeTierByScore(finalScore) ?? resolvePrizeTierConfig(inputTier);
   const options = config.rewardOptions;
   const totalWeight = options.reduce((sum, option) => sum + Math.max(0, option.weight), 0);

@@ -48,7 +48,7 @@ export const TIER_DIFFICULTY_CONFIGS: Record<TierId, TierDifficultyConfig> = {
     shotResetMs: 2500,
     idleTimeoutMs: 60_000,
     tierDurationMs: 60_000,
-    aimHorizontalMarginExtra: -0.18,
+    aimHorizontalMarginExtra: 0.12,
     aimVerticalMarginTopExtra: -0.14,
     aimVerticalMarginBottomExtra: -0.28,
     ballisticTimeWindowScale: 0.74,
