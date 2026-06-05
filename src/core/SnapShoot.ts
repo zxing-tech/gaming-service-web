@@ -981,7 +981,7 @@ export class SnapShoot {
     });
 
 
-    const tokenId = `${prizeAward.topPrizeCode}-${Date.now().toString(36).toUpperCase()}`;
+    const tokenId = finalScore === 0 ? '-' : `${prizeAward.topPrizeCode}-${Date.now().toString(36).toUpperCase()}`;
     gameEventBus.emit({
       type: 'SHOW_GAME_OVER_MODAL',
       score: finalScore,
