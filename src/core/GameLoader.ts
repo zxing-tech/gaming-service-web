@@ -86,11 +86,16 @@ export async function loadGame(params?: { score?: number; uuid?: string }) {
   // Existing recorded score (if any). Used to short-circuit straight to the
   // game-over screen when the user has already submitted (first-score-wins).
   let existingScore: number | null = null;
+  let lastReward: { label: string; token: string | null } | null = null;
   if (uuid) {
     try {
       const user = await BackendClient.getUser(uuid);
       console.log(`✅ Backend user loaded: c_score=${user.c_score}, merchant=${user.c_merchant_code}`);
-      existingScore = user.c_score;
+      // Only a real number counts as an existing score. Grab can return c_score
+      // as undefined (field absent) for a brand-new user — `undefined !== null`
+      // would otherwise short-circuit to game-over with an undefined score.
+      existingScore = typeof user.c_score === 'number' ? user.c_score : null;
+      lastReward = user.lastReward ?? null;
     } catch (err) {
       console.error('❌ Backend getUser failed; continuing without persistence.', err);
     }
@@ -105,7 +110,9 @@ export async function loadGame(params?: { score?: number; uuid?: string }) {
       type: 'SHOW_GAME_OVER_MODAL',
       score: existingScore,
       points: existingScore,
-      tokenId: uuid ?? '-',
+      // Show the reward they originally received, not a placeholder.
+      tokenId: lastReward?.token ?? '-',
+      redeemedReward: lastReward?.label ?? 'Not Redeemed',
     });
     return;
   }
@@ -129,17 +136,47 @@ export async function loadGame(params?: { score?: number; uuid?: string }) {
 
   debugSettings.registerDebugToggler((enabled) => game.toggleDebugMode(enabled));
 
-  // POST the final score to the backend on game over. Fire-and-forget; we do
-  // not want a network failure to block the game-over UI flow.
+  // POST the final score to the backend on game over, then swap the modal's
+  // placeholder reward for the one the backend awarded from the admin inventory.
+  // Fire-and-forget; a network failure leaves the client-side reward in place.
   if (uuid) {
     const { gameEventBus } = await import('../../app/lib/gameEventBus');
+    // Submit at most once per session. Grab is first-score-wins, so replays
+    // (restart / tier-timer) would only get rejected with a 400 — skip them.
+    let scoreSubmitted = false;
     // The engine emits SHOW_GAME_OVER_MODAL (not GAME_OVER) at end-of-game.
     gameEventBus.on('SHOW_GAME_OVER_MODAL', (event) => {
       if (event.type !== 'SHOW_GAME_OVER_MODAL') return;
+      if (scoreSubmitted) {
+        console.log('↩️ Score already submitted this session — skipping re-submit (first-score-wins).');
+        return;
+      }
+      scoreSubmitted = true;
       console.log(`📤 Posting final score to backend: ${event.score}`);
-      BackendClient.updateScore(uuid, event.score).catch((err) => {
-        console.error('❌ Backend updateScore failed', err);
-      });
+      BackendClient.updateScore(uuid, event.score)
+        .then(({ resolved, reward }) => {
+          // Not resolved = Supabase unavailable; keep the client-side reward.
+          if (!resolved) return;
+          if (reward) {
+            console.log(`🎁 Backend-awarded reward: ${reward.label} (${reward.tokenId})`);
+            gameEventBus.emit({
+              type: 'UPDATE_REDEEMED_REWARD',
+              redeemedReward: reward.label,
+              tokenId: reward.tokenId,
+            });
+          } else {
+            // Tier matched but no prize for this score band.
+            console.log('🎁 Backend resolved: no prize for this score');
+            gameEventBus.emit({
+              type: 'UPDATE_REDEEMED_REWARD',
+              redeemedReward: 'No Prize',
+              tokenId: '-',
+            });
+          }
+        })
+        .catch((err) => {
+          console.error('❌ Backend updateScore failed', err);
+        });
     });
   }
 

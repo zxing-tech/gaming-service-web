@@ -981,7 +981,11 @@ export class SnapShoot {
     });
 
 
-    const tokenId = finalScore === 0 ? '-' : `${prizeAward.topPrizeCode}-${Date.now().toString(36).toUpperCase()}`;
+    // No token for the "no prize" band (score 0). When a uuid is present the
+    // backend reward (and its token) replaces this placeholder shortly after.
+    const tokenId = prizeAward.hasPrize
+      ? `${prizeAward.topPrizeCode}-${Date.now().toString(36).toUpperCase()}`
+      : '-';
     gameEventBus.emit({
       type: 'SHOW_GAME_OVER_MODAL',
       score: finalScore,

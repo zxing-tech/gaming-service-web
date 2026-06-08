@@ -28,6 +28,14 @@ export type GameEvent =
     tokenId?: string;
     redeemedReward?: string;
   }
+  // Emitted after the backend awards a reward from the admin inventory, to
+  // replace the client-side placeholder reward in the game-over modal.
+  | {
+    type: 'UPDATE_REDEEMED_REWARD';
+    redeemedReward: string;
+    tokenId?: string;
+    points?: number;
+  }
   | {
     type: 'PRIZE_AWARDED';
     score: number;

@@ -24,53 +24,52 @@ export interface PrizeAwardResult {
   topPrizePoints: number;
   topPrizeCode: string;
   topPrizeLabel: string;
+  // false for the "no prize" band (score 0) — used to suppress the token.
+  hasPrize: boolean;
 }
 
 export const DEFAULT_PRIZE_TIER_ID: TierId = DEFAULT_TIER_ID;
 
+// Mirrors the admin-configured reward inventory (Supabase reward_tiers) so the
+// client-side placeholder/offline fallback matches what the backend awards:
+//   score 0     -> No Prize
+//   score 1-12  -> RM3 Voucher
+//   score 13+   -> RM5 Voucher
+// The backend (RewardService) is authoritative when a uuid is present; this is
+// the fallback shown for offline/standalone play and as the initial placeholder.
 export const PRIZE_TIER_CONFIGS: Record<TierId, PrizeTierConfig> = {
   1: {
     tierId: 1,
     tierName: 'Tier 1',
     minScore: 0,
-    maxScore: 10,
-    prizePoolLabel: '10 GrabCoins',
-    rewardOptions: [
-      { code: 'TR1_10_GRABCOINS', label: '10 GrabCoins', weight: 1 }
-    ],
-    topPrizePoints: 10,
-    topPrizeCode: 'TR1_10_GRABCOINS',
-    topPrizeLabel: '10 GrabCoins',
+    maxScore: 0,
+    prizePoolLabel: 'No Prize',
+    rewardOptions: [],
+    topPrizePoints: 0,
+    topPrizeCode: '',
+    topPrizeLabel: 'No Prize',
   },
   2: {
     tierId: 2,
     tierName: 'Tier 2',
-    minScore: 11,
-    maxScore: 19,
-    prizePoolLabel: '50 GrabCoins or RM5 GrabFood voucher',
-    rewardOptions: [
-      // Show GrabCoins most of the time; voucher remains randomized and occasional.
-      { code: 'TR2_50_GRABCOINS', label: '50 GrabCoins', weight: 8 },
-      { code: 'TR2_RM5_GRABFOOD', label: 'RM5 GrabFood Voucher', weight: 2 }
-    ],
-    topPrizePoints: 19,
-    topPrizeCode: 'TR2_50_GRABCOINS',
-    topPrizeLabel: '50 GrabCoins',
+    minScore: 1,
+    maxScore: 12,
+    prizePoolLabel: 'RM3 Voucher',
+    rewardOptions: [{ code: 'TR2_RM3', label: 'RM3 Voucher', weight: 1 }],
+    topPrizePoints: 12,
+    topPrizeCode: 'TR2_RM3',
+    topPrizeLabel: 'RM3 Voucher',
   },
   3: {
     tierId: 3,
     tierName: 'Tier 3',
-    minScore: 20,
+    minScore: 13,
     maxScore: null,
-    prizePoolLabel: '100 GrabCoins or RM15 GrabFood voucher',
-    rewardOptions: [
-      // Show GrabCoins most of the time; voucher remains randomized and occasional.
-      { code: 'TR3_100_GRABCOINS', label: '100 GrabCoins', weight: 8 },
-      { code: 'TR3_RM15_GRABFOOD', label: 'RM15 GrabFood Voucher', weight: 2 }
-    ],
-    topPrizePoints: 20,
-    topPrizeCode: 'TR3_100_GRABCOINS',
-    topPrizeLabel: '100 GrabCoins',
+    prizePoolLabel: 'RM5 Voucher',
+    rewardOptions: [{ code: 'TR3_RM5', label: 'RM5 Voucher', weight: 1 }],
+    topPrizePoints: 13,
+    topPrizeCode: 'TR3_RM5',
+    topPrizeLabel: 'RM5 Voucher',
   },
 };
 
@@ -92,29 +91,16 @@ export function resolvePrizeTierConfig(inputTier: TierId | number | undefined | 
   return PRIZE_TIER_CONFIGS[DEFAULT_PRIZE_TIER_ID];
 }
 
-export function resolvePrizeTierByScore(finalScore: number): PrizeTierConfig | null {
-  if (finalScore === 0) return null;
-  if (finalScore >= 20) return PRIZE_TIER_CONFIGS[3];
-  return PRIZE_TIER_CONFIGS[1]; // score 1–19 → Medium
+export function resolvePrizeTierByScore(finalScore: number): PrizeTierConfig {
+  if (finalScore >= 13) return PRIZE_TIER_CONFIGS[3];
+  if (finalScore >= 1) return PRIZE_TIER_CONFIGS[2];
+  return PRIZE_TIER_CONFIGS[1];
 }
 
 export function buildPrizeAwardResult(
   inputTier: TierId | number | undefined | null,
   finalScore: number
 ): PrizeAwardResult {
-  // Score 0 → no prize
-  if (finalScore === 0) {
-    return {
-      tierId: 1,
-      tierName: 'No Prize',
-      prizePoolLabel: 'No Prize',
-      topPrizeReached: false,
-      topPrizePoints: 0,
-      topPrizeCode: '',
-      topPrizeLabel: 'Not Redeemed',
-    };
-  }
-
   const config = resolvePrizeTierByScore(finalScore) ?? resolvePrizeTierConfig(inputTier);
   const options = config.rewardOptions;
   const totalWeight = options.reduce((sum, option) => sum + Math.max(0, option.weight), 0);
@@ -133,13 +119,15 @@ export function buildPrizeAwardResult(
     code: config.topPrizeCode,
     label: config.topPrizeLabel
   };
+  const hasPrize = resolvedPicked.code !== '';
   return {
     tierId: config.tierId,
     tierName: config.tierName,
     prizePoolLabel: config.prizePoolLabel,
-    topPrizeReached: true,
+    topPrizeReached: hasPrize,
     topPrizePoints: config.topPrizePoints,
     topPrizeCode: resolvedPicked.code,
     topPrizeLabel: resolvedPicked.label,
+    hasPrize,
   };
 }

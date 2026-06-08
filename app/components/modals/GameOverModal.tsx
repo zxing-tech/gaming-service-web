@@ -32,10 +32,18 @@ export function GameOverModal() {
 
   useGameEvent('SHOW_GAME_OVER_MODAL', (event) => {
     setIsOpen(true);
-    setScore(event.score);
-    setPoints(event.points ?? event.score);
+    setScore(event.score ?? 0);
+    setPoints(event.points ?? event.score ?? 0);
     setTokenId(event.tokenId ?? '-');
     setRedeemedReward(event.redeemedReward ?? 'Not Redeemed');
+  });
+
+  // Backend reward (from the admin inventory) arrives async after score submit;
+  // overwrite the client-side placeholder reward + token once it does.
+  useGameEvent('UPDATE_REDEEMED_REWARD', (event) => {
+    if (event.redeemedReward) setRedeemedReward(event.redeemedReward);
+    if (event.tokenId) setTokenId(event.tokenId);
+    if (event.points !== undefined) setPoints(event.points);
   });
 
   const handleRestart = () => {
