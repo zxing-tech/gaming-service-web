@@ -125,12 +125,11 @@ export async function loadGame(params?: { score?: number; uuid?: string }) {
   game.applyTierDifficulty(1);
   console.log('🎚️ Session tier initialized: Easy (auto progression enabled)');
 
-  // Mute all game audio for now.
-  gameStateService.setMusicEnabled(false);
-  game.setMusicEnabled(false);
   const audioSettings = gameStateService.getAudioSettings();
-  gameStateService.setSfxEnabled(false);
-  game.setSfxEnabled(false);
+  gameStateService.setMusicEnabled(true);
+  game.setMusicEnabled(true);
+  gameStateService.setSfxEnabled(true);
+  game.setSfxEnabled(true);
   game.setMasterVolume(audioSettings.masterVolume);
 
 

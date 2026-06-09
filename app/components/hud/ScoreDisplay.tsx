@@ -6,8 +6,6 @@ import { useGameEvent } from '@/hooks/useGameEvent';
 export function ScoreDisplay() {
   const [displayScore, setDisplayScore] = useState(0);
   const [lives, setLives] = useState({ remaining: 3, total: 3 });
-  const [tierTimer, setTierTimer] = useState({ remainingMs: 60_000, totalMs: 60_000, tierId: 1 as 1 | 2 | 3 });
-  const [isCinematic, setIsCinematic] = useState(false);
   const animationFrameRef = useRef<number | null>(null);
 
   useGameEvent('SCORE_CHANGED', (event) => {
@@ -16,18 +14,6 @@ export function ScoreDisplay() {
 
   useGameEvent('LIVES_CHANGED', (event) => {
     setLives({ remaining: event.livesRemaining, total: event.totalLives });
-  });
-
-  useGameEvent('TIER_TIMER_UPDATED', (event) => {
-    setTierTimer({
-      remainingMs: event.remainingMs,
-      totalMs: event.totalMs,
-      tierId: event.tierId
-    });
-  });
-
-  useGameEvent('CINEMATIC_CAMERA_CHANGED', (event) => {
-    setIsCinematic(event.active);
   });
 
   const animateScore = (from: number, to: number) => {
@@ -86,48 +72,22 @@ export function ScoreDisplay() {
         ))}
       </div>
 
+      {/* Score — hidden: replaced by the in-world Jumbotron mesh behind the goal. */}
       <div
-        className="pointer-events-none absolute z-[7] inline-flex items-center gap-2 rounded-[14px] border border-white/15 bg-[#00000096] px-2.5 py-1 shadow-[0_6px_18px_rgba(0,0,0,0.45)]"
-        style={{
-          top: 'calc(env(safe-area-inset-top, 0px) + 8px)',
-          right: 'calc(env(safe-area-inset-right, 0px) + 10px)'
-        }}
+        className="pointer-events-none absolute left-1/2 z-[6] hidden w-[min(280px,calc(100%-16px))] max-w-[92%] -translate-x-1/2 flex-col items-center px-1"
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + max(52px, 8vh))' }}
       >
-        <span className="font-mono text-[16px] font-extrabold leading-none tabular-nums text-white">
-          {formatMsToClock(tierTimer.remainingMs)}
-        </span>
-      </div>
-
-      {/* Sponsor strip + score — width capped so it never spills past rounded displays.
-          Hidden: replaced by the in-world `Jumbotron` mesh behind the goal. */}
-      <div
-        className={`pointer-events-none absolute left-1/2 z-[6] hidden w-[min(280px,calc(100%-16px))] max-w-[92%] -translate-x-1/2 flex-col items-center px-1 transition-opacity duration-300 ${isCinematic ? 'opacity-0' : 'opacity-100'}`}
-        style={{
-          top: 'calc(env(safe-area-inset-top, 0px) + max(6px, 1vh))'
-        }}
-      >
-        <div className="flex h-9 w-[min(170px,min(48vw,170px))] shrink-0 items-center justify-center rounded border border-black/25 bg-[#B90E28] px-2 shadow-[0_8px_18px_rgba(0,0,0,0.4)] landscape-xs:h-7 landscape-xs:max-w-[min(130px,40vw)]">
-          <img
-            src="/assets/ads/image.png"
-            alt=""
-            className="max-h-full w-full object-contain"
-          />
-        </div>
-
         <div
           id="scoreboard-container"
-          className="mt-1.5 w-full max-w-[248px] rounded border border-black/20 bg-[#D31738] shadow-[0_16px_30px_rgba(0,0,0,0.45)] landscape-xs:mt-1"
-          style={{
-            maxHeight: 'min(210px, 38svh)'
-          }}
+          className="w-full max-w-[248px] rounded border border-black/20 bg-[#D31738] shadow-[0_16px_30px_rgba(0,0,0,0.45)]"
         >
-          <div className="flex min-h-0 w-full flex-col items-center justify-center gap-1 overflow-hidden px-2 pb-3 pt-2 landscape-xs:gap-0.5 landscape-xs:pb-2 landscape-xs:pt-1.5">
+          <div className="flex min-h-0 w-full flex-col items-center justify-center gap-1 overflow-hidden px-2 pb-3 pt-2">
             <img
               src="/assets/ads/image-white.png"
               alt=""
-              className="mb-1 w-[min(90px,26vw)] shrink-0 object-contain opacity-95 landscape-xs:mb-0.5 landscape-xs:w-[min(66px,22vw)]"
+              className="mb-1 w-[min(90px,26vw)] shrink-0 object-contain opacity-95"
             />
-            <div className="font-russo text-[clamp(1.75rem,10.5vw,3.5rem)] font-black leading-none tracking-wide text-white drop-shadow-[0_6px_10px_rgba(0,0,0,0.25)] landscape-xs:text-[clamp(1.5rem,9vw,2.25rem)] tabular-nums">
+            <div className="font-russo text-[clamp(1.75rem,10.5vw,3.5rem)] font-black leading-none tracking-wide text-white drop-shadow-[0_6px_10px_rgba(0,0,0,0.25)] tabular-nums">
               {displayScore}
             </div>
           </div>
@@ -135,11 +95,4 @@ export function ScoreDisplay() {
       </div>
     </>
   );
-}
-
-function formatMsToClock(ms: number): string {
-  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { CountdownOverlay } from '@/components/hud/CountdownOverlay';
 import { TouchGuide } from '@/components/hud/TouchGuide';
 import { ShotInfoHud } from '@/components/hud/ShotInfoHud';
 import { ScoreDisplay } from '@/components/hud/ScoreDisplay';
@@ -54,6 +55,7 @@ export default function HomePage() {
       <LoadingScreen />
       <canvas id="game-canvas" />
       <div id="ui" className="pointer-events-none">
+        <CountdownOverlay />
         <TouchGuide />
         <ShotInfoHud />
         <TierChangeHud />

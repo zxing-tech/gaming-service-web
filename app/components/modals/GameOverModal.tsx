@@ -4,11 +4,12 @@ import { useState } from 'react';
 import { useGameEvent } from '@/hooks/useGameEvent';
 import { gameEventBus } from '@/lib/gameEventBus';
 import { showToast } from '@/lib/toast';
-import { TOSS_CONFIG } from '@/../src/config/TossConfig';
-import { isTossApp, isTossGameCenterAvailable } from '@/../src/utils/TossEnvironment';
+// import { TOSS_CONFIG } from '@/../src/config/TossConfig';
+// import { isTossApp, isTossGameCenterAvailable } from '@/../src/utils/TossEnvironment';
 import { Modal, ModalHeader, ModalContent, ModalFooter } from '@/components/ui/Modal';
-import { StyledIconButton } from '@/components/common/StyledIconButton';
-import { ArrowClockwise, Ranking, ShareNetwork } from '@phosphor-icons/react';
+// import { StyledIconButton } from '@/components/common/StyledIconButton';
+import { ArrowClockwise } from '@phosphor-icons/react';
+// import { Ranking, ShareNetwork } from '@phosphor-icons/react';
 
 const SHARE_MESSAGES = [
   'SnapShoot ⚽️ {score} points! Think you can beat me?\n\nTry now 👇',
@@ -29,6 +30,8 @@ export function GameOverModal() {
   const [points, setPoints] = useState(0);
   const [tokenId, setTokenId] = useState('-');
   const [redeemedReward, setRedeemedReward] = useState('Not Redeemed');
+
+  const isWinner = score > 0;
 
   useGameEvent('SHOW_GAME_OVER_MODAL', (event) => {
     setIsOpen(true);
@@ -51,103 +54,29 @@ export function GameOverModal() {
     gameEventBus.emit({ type: 'RESTART_GAME' } as any);
   };
 
-  const handleShare = async () => {
-    try {
-
-      const currentScore = score;
-
-
-      const message = getRandomShareMessage(currentScore);
-
-
-      if (isTossApp()) {
-
-        const environment = typeof process !== 'undefined'
-          ? process.env.NEXT_PUBLIC_ENVIRONMENT ?? 'development'
-          : 'development';
-        const scheme = environment === 'production' ? 'intoss' : 'intoss-private';
-        const deepLink = `${scheme}://snapshoot?score=${currentScore}`;
-
-      console.log(`📤 Share started (Toss app) - env: ${environment}, deepLink: ${deepLink}`);
-
-        const { getTossShareLink, share } = await import('@apps-in-toss/web-framework');
-        const tossShareLink = await getTossShareLink(deepLink);
-        await share({
-          message: `${message}\\n${tossShareLink}`
-        });
-
-        console.log('✅ Share successful! (Toss app)');
-      } else {
-
-        const webLink =
-          (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_WEB_SHARE_URL) ||
-          'https://github.com/zxing-tech/gaming-service-web';
-        const shareText = `${message}\\n${webLink}`;
-
-        console.log(`📤 Share started (web) - link: ${webLink}`);
-
-
-        if (navigator.share) {
-          await navigator.share({
-            text: shareText
-          });
-          console.log('✅ Share successful! (Web Share API)');
-        } else {
-
-          await navigator.clipboard.writeText(shareText);
-          showToast.success('Share message copied to clipboard!\\nPaste it anywhere you like.');
-          console.log('✅ Clipboard copy complete!');
-        }
-      }
-    } catch (error) {
-      console.error('❌ Share failed:', error);
-      if (error instanceof Error) {
-        if (error.message.includes('cancel') || error.name === 'AbortError') {
-          console.log('ℹ️ User canceled sharing.');
-        } else {
-          console.error('Share error:', error.message);
-          showToast.error('An error occurred while sharing.\\nPlease try again.');
-        }
-      }
-    }
-  };
-
-  const handleRanking = async () => {
-
-    if (!TOSS_CONFIG.GAME_CENTER_ENABLED) {
-      console.warn('ℹ️ Game Center is not enabled yet.');
-      showToast.info('Ranking is coming soon.\\nPlease check back later!');
-      return;
-    }
-
-
-    if (!isTossGameCenterAvailable()) {
-      console.warn('ℹ️ Ranking is only available in the Toss app.');
-      showToast.info('Ranking is only available in the Toss app.\\nPlease run the game in Toss.');
-      return;
-    }
-
-    try {
-      const { openGameCenterLeaderboard } = await import('@apps-in-toss/web-framework');
-      await openGameCenterLeaderboard();
-      console.log('✅ Opened Toss Game Center leaderboard');
-    } catch (error) {
-      console.error('❌ Failed to open leaderboard:', error);
-    }
-  };
+  /* handleShare and handleRanking commented out — buttons hidden */
+  /*
+  const handleShare = async () => { ... };
+  const handleRanking = async () => { ... };
+  */
 
   return (
     <Modal isOpen={isOpen} closeOnEsc={false} closeOnBackdrop={false}>
-      <ModalHeader 
-        title="GAME OVER"
+      <ModalHeader
+        title={isWinner ? '🏆 YOU WON!' : 'GAME OVER'}
       />
-      
+
       <ModalContent centered={false} className="px-5 sm:px-6">
           <>
             {/* Score Display */}
             <div className="flex flex-col items-center gap-1 py-5 animate-fade-in">
+              {isWinner && (
+                <div className="winner-title mb-1 text-[13px] font-extrabold uppercase tracking-[0.2em] text-yellow-300">
+                  Amazing! 🎉
+                </div>
+              )}
               <div className="text-white/70 font-semibold text-[11px] uppercase tracking-[0.22em]">Final Score</div>
-              <div className="text-white font-russo font-black tracking-tight drop-shadow-lg text-[clamp(52px,11vw,74px)] leading-none">
+              <div className={`font-russo font-black tracking-tight drop-shadow-lg text-[clamp(52px,11vw,74px)] leading-none ${isWinner ? 'winner-score' : 'text-white'}`}>
                 {score.toLocaleString()}
               </div>
             </div>
@@ -181,45 +110,45 @@ export function GameOverModal() {
               </div>
             </div>
 
-            {/* Top Buttons */}
-            <div className="mt-4 flex gap-5 w-full max-w-lg justify-center">
-              <StyledIconButton 
-                Icon={Ranking} 
-                label="Ranking" 
+            {/* Top Buttons — hidden for now */}
+            {/* <div className="mt-4 flex gap-5 w-full max-w-lg justify-center">
+              <StyledIconButton
+                Icon={Ranking}
+                label="Ranking"
                 variant="ranking"
-                onClick={handleRanking} 
+                onClick={handleRanking}
               />
-              <StyledIconButton 
-                Icon={ShareNetwork} 
-                label="Share" 
+              <StyledIconButton
+                Icon={ShareNetwork}
+                label="Share"
                 variant="share"
-                onClick={handleShare} 
+                onClick={handleShare}
               />
-            </div>
+            </div> */}
           </>
       </ModalContent>
 
       <ModalFooter>
           <button
             onClick={handleRestart}
-            className="
+            className={`
               flex items-center gap-2
-              px-16 py-4 rounded-full
-              backdrop-blur-sm
+              px-10 py-4 rounded-full
               text-white font-bold text-lg
               transition-all duration-150
               relative overflow-hidden
-              bg-gradient-to-br from-white/25 to-white/15
-              border-2 border-white/40
-              shadow-[0_12px_32px_rgba(0,0,0,0.4)]
               active:scale-95
               group
-            "
+              ${isWinner
+                ? 'bg-gradient-to-br from-yellow-400/90 to-orange-500/90 border-2 border-yellow-300/60 shadow-[0_12px_32px_rgba(255,180,0,0.45)]'
+                : 'backdrop-blur-sm bg-gradient-to-br from-white/25 to-white/15 border-2 border-white/40 shadow-[0_12px_32px_rgba(0,0,0,0.4)]'
+              }
+            `}
           >
-            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/30 to-transparent pointer-events-none"></div>
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-white/25 to-transparent pointer-events-none" />
             <div className="relative z-[2] flex items-center gap-2">
               <ArrowClockwise weight="fill" className="text-2xl drop-shadow-md group-active:scale-90 transition-transform" />
-              <span>Restart</span>
+              <span>Return to Grab</span>
             </div>
           </button>
         </ModalFooter>

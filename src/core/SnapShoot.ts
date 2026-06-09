@@ -53,6 +53,7 @@ import {
   resolvePrizeTierConfig,
   type PrizeTierConfig
 } from '../config/PrizeTiers';
+import { BallTrail } from '../effects/BallTrail';
 export class SnapShoot {
   private readonly onScoreChange: (score: number) => void;
   private isNewRecord = false;
@@ -78,6 +79,8 @@ export class SnapShoot {
 
   private readonly inputController: InputController;
   private readonly curveForceSystem = new CurveForceSystem();
+  private ballTrail!: BallTrail;
+  private isCountdownActive = false;
   private pendingShotLaunch: {
     velocity: CANNON.Vec3;
     angularVelocity: CANNON.Vec3;
@@ -91,6 +94,7 @@ export class SnapShoot {
   private score = 0;
   private shotResetTimer: number | null = null;
   private keeperCatchHandledForCurrentShot = false;
+  private keeperPassThroughShot = false;
   private keeperShotProfile: {
     startMs: number;
     predictedTargetX: number;
@@ -186,7 +190,14 @@ export class SnapShoot {
     gameEventBus.on('GAME_STARTED', () => {
       if (this.hasGameStarted) return;
       this.hasGameStarted = true;
+      this.isCountdownActive = true;
       this.resetIdleTimer();
+      void this.audio.playMusic('crowd', { fadeIn: true });
+      // Tier timer starts after the countdown overlay finishes.
+    });
+
+    gameEventBus.on('COUNTDOWN_COMPLETE', () => {
+      this.isCountdownActive = false;
       this.resetTierTimer();
     });
 
@@ -262,6 +273,8 @@ export class SnapShoot {
     });
     this.applyTierDifficulty(gameStateService.getEffectiveTier());
 
+    this.ballTrail = new BallTrail(this.scene);
+
     this.attachEventListeners();
     this.emitLivesChanged();
     this.resetBall();
@@ -303,9 +316,8 @@ export class SnapShoot {
     const isNewRecord = this.isNewRecord;
     if (isNewRecord) {
       this.audio.playSound('record');
-    } else {
-      this.audio.playSound('goal');
     }
+    this.audio.playSound('crowdCheer');
 
     if (isNewRecord) {
       this.field.adBoard.switchAdSet('record');
@@ -387,6 +399,7 @@ export class SnapShoot {
     this.ball.body.torque.set(0, 0, 0);
 
     this.curveForceSystem.stopCurveShot();
+    this.ballTrail.stop();
 
     this.inputController.clearSwipeTrailDisplay();
 
@@ -443,6 +456,7 @@ export class SnapShoot {
     this.field.update(deltaTime);
 
     this.ball.syncVisuals();
+    if (this.isShotInProgress) this.ballTrail.update(this.ball.body.position);
     this.updateCameraFollow(deltaTime);
     this.debugVisualizer.updateColliderVisuals();
     this.debugVisualizer.updateSwipeDebugLine();
@@ -479,6 +493,7 @@ export class SnapShoot {
    */
   private tryKeeperProximityCatch(preStepBallPos: CANNON.Vec3): void {
     if (!this.isShotInProgress || this.hasScored || this.keeperCatchHandledForCurrentShot) return;
+    if (this.keeperPassThroughShot) return;
 
     const keeper = this.difficultyManager
       .getObstacles()
@@ -499,7 +514,11 @@ export class SnapShoot {
     }
 
     const diveSide = keeper.getKeeperCommittedDiveSide();
-    const upperCX = diveSide === 0 ? keeperX : keeperX + diveSide * 0.48;
+    // getKeeperCommittedDiveSide() applies KEEPER_GAMEPLAY_SIDE_SIGN=-1, so its sign is
+    // opposite to the direction the physics body actually moved. Negate it here so the
+    // hitbox center and wide half-extent extend toward the keeper's real dive direction.
+    const physSide = (diveSide === 0 ? 0 : -diveSide) as -1 | 0 | 1;
+    const upperCX = physSide === 0 ? keeperX : keeperX + physSide * 0.48;
     const upperCY = keeperFeetY + 1.05;
     const upperCZ = keeperZ;
     const upperHXDiveSide = 0.85 + BALL_RADIUS;
@@ -507,7 +526,7 @@ export class SnapShoot {
     const upperHY = 0.75 + BALL_RADIUS;
     const upperHZ = 0.45 + BALL_RADIUS;
 
-    const lowerCX = diveSide === 0 ? keeperX : keeperX + diveSide * 0.22;
+    const lowerCX = physSide === 0 ? keeperX : keeperX + physSide * 0.22;
     const lowerCY = keeperFeetY + 0.4;
     const lowerCZ = keeperZ;
     const lowerHXDiveSide = 0.5 + BALL_RADIUS;
@@ -517,9 +536,9 @@ export class SnapShoot {
 
     const inUpper = (px: number, py: number, pz: number) => {
       const dx = px - upperCX;
-      const maxDx = diveSide === 0
+      const maxDx = physSide === 0
         ? upperHXDiveSide
-        : (Math.sign(dx) === diveSide ? upperHXDiveSide : upperHXOtherSide);
+        : (Math.sign(dx) === physSide ? upperHXDiveSide : upperHXOtherSide);
       return Math.abs(dx) <= maxDx &&
         py >= upperCY - upperHY &&
         py <= upperCY + upperHY &&
@@ -527,9 +546,9 @@ export class SnapShoot {
     };
     const inLower = (px: number, py: number, pz: number) => {
       const dx = px - lowerCX;
-      const maxDx = diveSide === 0
+      const maxDx = physSide === 0
         ? lowerHXDiveSide
-        : (Math.sign(dx) === diveSide ? lowerHXDiveSide : lowerHXOtherSide);
+        : (Math.sign(dx) === physSide ? lowerHXDiveSide : lowerHXOtherSide);
       return Math.abs(dx) <= maxDx &&
         py >= lowerCY - lowerHY &&
         py <= lowerCY + lowerHY &&
@@ -592,6 +611,7 @@ export class SnapShoot {
     this.ball.body.removeEventListener('collide', this.handleBallCollideBound);
     this.characterActors.reset();
     this.debugVisualizer.dispose();
+    this.ballTrail.dispose();
     this.difficultyManager.dispose();
     this.difficultyManager.dispose();
     this.hdrPipeline.dispose();
@@ -744,13 +764,15 @@ export class SnapShoot {
     predictedTargetX: number
   ) {
 
-    if (this.isShotInProgress) return;
+    if (this.isShotInProgress || this.isCountdownActive) return;
     this.resetIdleTimer();
 
 
     this.isShotInProgress = true;
     this.keeperCatchHandledForCurrentShot = false;
     this.hasScored = false;
+    // 80% of shots pass through the keeper — only 20% are actually saved.
+    this.keeperPassThroughShot = Math.random() > 0.20;
     // Hide swipe ribbon as soon as shot is committed.
     this.inputController.clearSwipeTrailDisplay();
 
@@ -766,6 +788,10 @@ export class SnapShoot {
       predictedTargetX,
       shotSpeed
     };
+    // Disable keeper body collision for pass-through shots so the ball isn't deflected.
+    if (keeper) {
+      keeper.body.collisionFilterMask = this.keeperPassThroughShot ? 0 : -1;
+    }
     keeper?.setKeeperPredictedTargetX(predictedTargetX);
     keeper?.setKeeperIncomingShotSpeed(shotSpeed);
     keeper?.prepareKeeperForIncomingShot();
@@ -789,10 +815,12 @@ export class SnapShoot {
 
     // Kick contact frame: enable physics and launch in same tick for tighter sync.
     this.ballController.prepareBallForShot();
+    this.audio.playSound('kick');
 
     this.ball.body.velocity.copy(velocity);
     this.ball.body.angularVelocity.copy(angularVelocity);
     this.curveForceSystem.startCurveShot(analysis);
+    this.ballTrail.start(this.ball.body.position);
     this.isFollowingBall = true;
     gameEventBus.emit({ type: 'CINEMATIC_CAMERA_CHANGED', active: true });
     if (this.keeperShotProfile) {
@@ -819,9 +847,6 @@ export class SnapShoot {
 
     if (!this.hasScored) {
 
-      this.audio.playSound('reset');
-
-
       this.failCount++;
       this.livesRemaining = Math.max(0, this.livesRemaining - 1);
       this.emitLivesChanged();
@@ -845,10 +870,16 @@ export class SnapShoot {
     this.shotResetTimer = null;
     this.pendingShotLaunch = null;
     this.keeperCatchHandledForCurrentShot = false;
+    this.keeperPassThroughShot = false;
     this.keeperShotProfile = null;
+
+    // Restore keeper body collision for the next shot.
+    const keeper = this.difficultyManager.getObstacles().find((o) => o.blueprintId === 'keeperWall');
+    if (keeper) keeper.body.collisionFilterMask = -1;
 
 
     this.curveForceSystem.stopCurveShot();
+    this.ballTrail.stop();
   }
 
   /**
@@ -905,6 +936,7 @@ export class SnapShoot {
 
 
     this.curveForceSystem.stopCurveShot();
+    this.ballTrail.stop();
 
 
     this.debugVisualizer.hideTargetMarker();
@@ -948,6 +980,7 @@ export class SnapShoot {
 
 
     this.curveForceSystem.stopCurveShot();
+    this.ballTrail.stop();
 
 
     this.debugVisualizer.hideTargetMarker();
@@ -964,6 +997,7 @@ export class SnapShoot {
   public gameOver(): void {
     console.log('💀 Game over');
     this.clearTierTimer();
+    this.audio.stopMusic('crowd');
 
 
     const finalScore = this.score;
@@ -1215,6 +1249,7 @@ export class SnapShoot {
       remainingMs,
       totalMs
     });
+    this.jumbotron.setTimer(remainingMs);
   }
 
 }

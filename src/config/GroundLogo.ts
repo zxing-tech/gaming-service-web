@@ -6,7 +6,7 @@ import * as THREE from 'three';
  */
 export function getGroundLogoLayout(): { width: number; height: number; z: number } {
   if (typeof window === 'undefined') {
-    return { width: 3, height: 4.8, z: 0.7 };
+    return { width: 3.8, height: 1.27, z: 0.7 };
   }
 
   const sw = Math.min(window.innerWidth, window.innerHeight);
@@ -16,41 +16,42 @@ export function getGroundLogoLayout(): { width: number; height: number; z: numbe
   let height: number;
   let z: number;
 
+  // Image is 1024x344 (≈ 2.98:1 landscape). width ≈ height * 2.98 throughout.
   if (sw <= 320) {
-    width = 1.35;
-    height = 2.0;
+    width = 1.5;
+    height = 0.5;
     z = 0.46;
   } else if (sw <= 360) {
-    width = 1.5;
-    height = 2.2;
+    width = 1.7;
+    height = 0.57;
     z = 0.48;
   } else if (sw <= 390) {
-    width = 1.65;
-    height = 2.45;
+    width = 1.9;
+    height = 0.64;
     z = 0.5;
   } else if (sw <= 430) {
-    width = 1.85;
-    height = 2.75;
+    width = 2.1;
+    height = 0.7;
     z = 0.53;
   } else if (sw <= 480) {
-    width = 2.0;
-    height = 2.95;
+    width = 2.3;
+    height = 0.77;
     z = 0.55;
   } else if (sw <= 600) {
-    width = 2.2;
-    height = 3.25;
+    width = 2.5;
+    height = 0.84;
     z = 0.57;
   } else if (sw <= 768) {
-    width = 2.45;
-    height = 3.6;
+    width = 2.9;
+    height = 0.97;
     z = 0.62;
   } else if (sw <= 1024) {
-    width = 2.75;
-    height = 4.2;
+    width = 3.4;
+    height = 1.14;
     z = 0.66;
   } else {
-    width = 3;
-    height = 4.8;
+    width = 3.8;
+    height = 1.27;
     z = 0.7;
   }
 
