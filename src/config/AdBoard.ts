@@ -83,6 +83,31 @@ export const AD_BOARD_CONFIG: AdBoardConfig = {
         kind: 'image',
         imageUrl: '/assets/ads/ad-board-2x.jpg',
         backgroundColor: '#000000'
+      },
+      {
+        kind: 'image',
+        imageUrl: '/assets/ads/ad-board-1x.jpg',
+        backgroundColor: '#000000'
+      },
+      {
+        kind: 'image',
+        imageUrl: '/assets/ads/kfc.png',
+        backgroundColor: '#C8102E'
+      },
+      {
+        kind: 'image',
+        imageUrl: '/assets/ads/tiktok.png',
+        backgroundColor: '#000000'
+      },
+      {
+        kind: 'image',
+        imageUrl: '/assets/ads/wonda.png',
+        backgroundColor: '#5B3A29'
+      },
+      {
+        kind: 'image',
+        imageUrl: '/assets/ads/jayagrocer.png',
+        backgroundColor: '#FFFFFF'
       }
     ] as const,
     // Goal celebration ad set
