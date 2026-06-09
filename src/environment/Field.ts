@@ -9,7 +9,7 @@ import { Stands } from './Stands';
 import { getAssetPath } from '../utils/assetPath';
 
 const grassColorUrl = getAssetPath('/assets/grass/Grass005_1K-JPG_Color.jpeg');
-const groundLogoUrl = getAssetPath('/assets/ads/image-white.png');
+const groundLogoUrl = getAssetPath('/assets/ads/ground-kickoff.png');
 
 export interface FieldOptions {
   goalDepth?: number;

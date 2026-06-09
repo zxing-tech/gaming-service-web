@@ -69,8 +69,8 @@ export const AD_BOARD_CONFIG: AdBoardConfig = {
   },
   scrollSpeed: 0.05,
   canvas: {
-    width: 1024,
-    height: 192
+    width: 2048,
+    height: 384
   },
   display: {
     repeatX: 2.5,
@@ -80,12 +80,14 @@ export const AD_BOARD_CONFIG: AdBoardConfig = {
 
     default: [
       {
-        text: 'GRAB GAMING',
-        backgroundColor: '#121212',
-        textColor: '#00E7FF',
-        fontSize: 120,
-        fontWeight: 'bold',
-        textAlign: 'center'
+        kind: 'image',
+        imageUrl: '/assets/ads/ad-board-2x.jpg',
+        backgroundColor: '#000000'
+      },
+      {
+        kind: 'image',
+        imageUrl: '/assets/ads/ad-board-1x.jpg',
+        backgroundColor: '#000000'
       },
       {
         kind: 'image',

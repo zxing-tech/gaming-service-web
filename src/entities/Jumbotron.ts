@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { getAssetPath } from '../utils/assetPath';
 
 const LOGO_URL = getAssetPath('/assets/ads/image-white.png');
-const TOP_BANNER_LOGO_URL = getAssetPath('/assets/ads/image.png');
+
 const CANVAS_SIZE = 1024;
 const TOP_BANNER_CANVAS_W = 512;
 const TOP_BANNER_CANVAS_H = 128;
@@ -10,6 +10,13 @@ const BG_COLOR = '#D31738';
 const TOP_BANNER_BG_COLOR = '#B90E28';
 const TEXT_COLOR = '#FFFFFF';
 const BORDER_COLOR = '#0a0a0a';
+
+function formatMsTimer(ms: number): string {
+  const totalSec = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
 
 export interface JumbotronOptions {
   width?: number;
@@ -39,8 +46,9 @@ export class Jumbotron {
   private readonly topBannerTexture: THREE.CanvasTexture;
   private readonly topBannerMaterial: THREE.MeshBasicMaterial;
   private logoImage: HTMLImageElement | null = null;
-  private topBannerLogoImage: HTMLImageElement | null = null;
+
   private currentScore = 0;
+  private currentTimerMs = 60_000;
 
   constructor(scene: THREE.Scene, options: JumbotronOptions = {}) {
     const width = options.width ?? 2.4;
@@ -125,13 +133,6 @@ export class Jumbotron {
 
     this.drawTopBanner();
 
-    const topImg = new Image();
-    topImg.onload = () => {
-      this.topBannerLogoImage = topImg;
-      this.drawTopBanner();
-    };
-    topImg.src = TOP_BANNER_LOGO_URL;
-
     this.draw();
 
     const img = new Image();
@@ -146,6 +147,11 @@ export class Jumbotron {
     if (score === this.currentScore) return;
     this.currentScore = score;
     this.draw();
+  }
+
+  setTimer(remainingMs: number): void {
+    this.currentTimerMs = remainingMs;
+    this.drawTopBanner();
   }
 
   private draw(): void {
@@ -201,28 +207,22 @@ export class Jumbotron {
     ctx.fillRect(0, 0, w, h);
 
     const bezel = Math.round(Math.min(w, h) * 0.06);
+    const panelX = bezel;
+    const panelY = bezel;
     const panelW = w - bezel * 2;
     const panelH = h - bezel * 2;
     ctx.fillStyle = TOP_BANNER_BG_COLOR;
-    ctx.fillRect(bezel, bezel, panelW, panelH);
+    ctx.fillRect(panelX, panelY, panelW, panelH);
 
-    drawInsetShadow(ctx, bezel, bezel, panelW, panelH, Math.round(Math.min(panelW, panelH) * 0.12));
+    drawInsetShadow(ctx, panelX, panelY, panelW, panelH, Math.round(Math.min(panelW, panelH) * 0.12));
 
-    if (this.topBannerLogoImage) {
-      const maxW = panelW * 0.78;
-      const maxH = panelH * 0.78;
-      const scale = Math.min(
-        maxW / this.topBannerLogoImage.width,
-        maxH / this.topBannerLogoImage.height
-      );
-      const drawW = this.topBannerLogoImage.width * scale;
-      const drawH = this.topBannerLogoImage.height * scale;
-      const drawX = bezel + (panelW - drawW) / 2;
-      const drawY = bezel + (panelH - drawH) / 2;
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(this.topBannerLogoImage, drawX, drawY, drawW, drawH);
-    }
+    // Timer — large and centered so it reads clearly from the pitch
+    const timerText = formatMsTimer(this.currentTimerMs);
+    ctx.fillStyle = TEXT_COLOR;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `900 ${Math.round(panelH * 0.70)}px Montserrat, "Arial Black", Arial, sans-serif`;
+    ctx.fillText(timerText, panelX + panelW / 2, panelY + panelH / 2);
 
     this.topBannerTexture.needsUpdate = true;
   }

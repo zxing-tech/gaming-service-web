@@ -27,7 +27,7 @@ export interface ShotAnalysis {
  */
 const THRESHOLDS = {
 
-  CURVE_DEVIATION: 0.08,
+  CURVE_DEVIATION: 0.28,
 };
 
 /**

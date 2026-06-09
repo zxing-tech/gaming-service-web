@@ -326,7 +326,8 @@ export class AudioManager {
 
   private getContext(): AudioContext {
     if (!this.context) {
-      this.context = new AudioContext();
+      const AudioCtx = (window.AudioContext || window.webkitAudioContext) as typeof AudioContext;
+      this.context = new AudioCtx();
     }
 
     if (this.context.state === 'suspended') {

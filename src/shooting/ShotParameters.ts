@@ -242,6 +242,13 @@ function adjustAimTarget(
     adjusted.x = baseTarget.x + outwardSign * (horizontalOffset + 0.15);
   }
 
+  // Guard: if the aim shift flipped the X side relative to the intended target,
+  // curveDirection opposes the swipe direction. Skip the shift so the ball
+  // always starts traveling toward the swipe side.
+  if (Math.abs(baseTarget.x) > 0.2 && Math.sign(adjusted.x) !== Math.sign(baseTarget.x)) {
+    return baseTarget.clone();
+  }
+
   const g = getGoalConfigForViewport();
   const tier = getTierConfig(tierId);
   const hMargin = SHOT_TARGET_CONFIG.horizontalMargin + tier.aimHorizontalMarginExtra;

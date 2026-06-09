@@ -47,7 +47,7 @@ export function calculateAngularVelocity(
 
 
 
-    const direction = -analysis.curveDirection;
+    const direction = analysis.curveDirection;
     const curveStrength = analysis.curveAmount;
 
 

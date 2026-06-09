@@ -71,6 +71,7 @@ export type GameEvent =
     remainingMs: number;
     totalMs: number;
   }
+  | { type: 'COUNTDOWN_COMPLETE' }
   | { type: 'DEBUG_MODE_CHANGED'; enabled: boolean }
   | { type: 'CINEMATIC_CAMERA_CHANGED'; active: boolean }
 

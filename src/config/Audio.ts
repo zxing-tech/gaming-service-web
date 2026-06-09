@@ -11,16 +11,18 @@ const cheerUrl = getAssetPath('/assets/audio/cheer.mp3');
 const recordUrl = getAssetPath('/assets/audio/record.mp3');
 const chantUrl = getAssetPath('/assets/audio/chant.mp3');
 const bg1Url = getAssetPath('/assets/audio/bg1.mp3');
+const crowdUrl = getAssetPath('/assets/audio/crowd.mp3');
+const crowdCheerUrl = getAssetPath('/assets/audio/crowd-cheer.mp3');
 
 /**
 
  */
-export type SoundKey = 'kick' | 'bounce' | 'goal' | 'save' | 'post' | 'reset' | 'net' | 'cheer' | 'record';
+export type SoundKey = 'kick' | 'bounce' | 'goal' | 'save' | 'post' | 'reset' | 'net' | 'cheer' | 'record' | 'crowdCheer';
 
 /**
 
  */
-export type MusicTrack = 'chant' | 'gameplay';
+export type MusicTrack = 'chant' | 'gameplay' | 'crowd';
 
 /**
 
@@ -59,7 +61,8 @@ export const AUDIO_CONFIG = {
     reset: { url: resetUrl, volume: 1.0 },
     net: { url: netUrl, volume: 1.0 },
     cheer: { url: cheerUrl, volume: 1.0 },
-    record: { url: recordUrl, volume: 1.0 }
+    record: { url: recordUrl, volume: 1.0 },
+    crowdCheer: { url: crowdCheerUrl, volume: 0.85 }
   } as const satisfies Record<SoundKey, SoundConfig>,
 
   /**
@@ -82,6 +85,11 @@ export const AUDIO_CONFIG = {
       volume: 1.0,
       loop: true,
       shuffle: true
+    },
+    crowd: {
+      urls: [crowdUrl],
+      volume: 0.85,
+      loop: true
     }
   } as const satisfies Record<MusicTrack, MusicConfig>
 } as const;

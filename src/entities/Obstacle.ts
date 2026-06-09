@@ -63,6 +63,11 @@ function inferDiveSideFromClipName(name: string): -1 | 0 | 1 {
   const n = name.toLowerCase();
   if (n.includes('left') || n.includes('leftward')) return -1;
   if (n.includes('right') || n.includes('rightward')) return 1;
+  // Verified by inspecting GLB Hips root-motion X:
+  // "Diving Save (7)" ends at x≈-2.7m (dives left), "Diving Save(8)" ends at x≈+2.2m (dives right).
+  // Clip names are stored as `<basename>::<internal>` so the label prefix uniquely identifies them.
+  if (n.startsWith('diving save (7)::')) return -1;
+  if (n.startsWith('diving save(8)::')) return 1;
   return 0;
 }
 
@@ -1001,6 +1006,19 @@ export class Obstacle {
 
     if (this.behaviorState.patrol) {
       this.applyPatrol(position, this.behaviorState.patrol, deltaTime);
+    } else if (
+      this.blueprintId === 'keeperWall' &&
+      this.keeperShotPhaseActive &&
+      this.keeperMovementArmed &&
+      this.keeperCommittedDiveSide !== 0 &&
+      this.keeperSmoothedPatrol !== null
+    ) {
+      // Static keeper during a shot: drift the physics body to the committed dive side so
+      // the hitbox clears center instead of staying planted while the mesh dives away.
+      const dt = Math.min(Math.max(deltaTime, 0), 0.05);
+      const diveTarget = this.currentBasePosition.x + this.keeperCommittedDiveSide * 1.0;
+      this.keeperSmoothedPatrol = THREE.MathUtils.damp(this.keeperSmoothedPatrol, diveTarget, 12.0, dt);
+      position.x = this.keeperSmoothedPatrol;
     }
     if (this.behaviorState.spin) {
       this.applySpin(quaternion, position, this.behaviorState.spin, deltaTime);
@@ -1109,12 +1127,7 @@ export class Obstacle {
   }
 
   private randomizeKeeperPatrolForShot(): void {
-    const patrol = this.behaviorState.patrol;
-    if (!patrol) return;
-
-    // Start each shot with an immediate side commit.
-    this.movementTime = 0;
-    // Bias heavily to predicted side so left/right shots are actually contested.
+    // Always commit a dive side so animation and physics agree — even for static keepers.
     const predictionChance = 0.92;
     let moveRight: boolean;
     if (this.keeperPredictedTargetX !== null && Math.random() < predictionChance) {
@@ -1124,11 +1137,21 @@ export class Obstacle {
       moveRight = Math.random() >= 0.5;
     }
     this.keeperCommittedDiveSide = moveRight ? 1 : -1;
-    patrol.phase = moveRight ? Math.PI * 0.5 : -Math.PI * 0.5;
 
+    const patrol = this.behaviorState.patrol;
+    if (!patrol) {
+      // Static keeper: seed the smoothed patrol at the current base x so the per-frame
+      // lateral drift (in the update loop) can ramp the physics body away from center.
+      this.keeperSmoothedPatrol = this.currentBasePosition.x;
+      this.applyKeeperHitbox('strict');
+      return;
+    }
+
+    // Start each shot with an immediate side commit.
+    this.movementTime = 0;
+    patrol.phase = moveRight ? Math.PI * 0.5 : -Math.PI * 0.5;
     // Stronger lateral speed so wing shots can be reached.
     patrol.speed = THREE.MathUtils.randFloat(3.4, 4.3);
-
     this.applyKeeperHitbox('strict');
   }
 
@@ -1313,7 +1336,10 @@ export class Obstacle {
 
       if (inBurstWindow && axis === 'x') {
         const predictedX = this.keeperPredictedTargetX;
-        if (predictedX !== null) {
+        // Only burst-snap for off-center shots. For straight shots (|predictedX| < 0.35) the
+        // keeper has already committed a dive side — let that side-movement play out so the
+        // physics body clears center instead of staying planted there while the mesh dives away.
+        if (predictedX !== null && Math.abs(predictedX) >= 0.35) {
           rawValue = THREE.MathUtils.clamp(predictedX, min, max);
         }
       }

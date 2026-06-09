@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useGameEvent } from '@/hooks/useGameEvent';
 import { gameEventBus } from '@/lib/gameEventBus';
 import Image from 'next/image';
@@ -17,18 +17,40 @@ const FOOTBALL_MESSAGES = [
   'Greeting the referee...',
 ];
 
+const TIPS = [
+  'You have 60 seconds — score as many goals as possible!',
+  'Swipe fast for a powerful shot!',
+  'Score more goals to unlock harder levels!',
+  'Aim for the corners — hardest to save!',
+];
+
 export function LoadingScreen() {
-  const loadingBackgroundUrl = getAssetPath('/assets/landing-bg.png');
+  const loadingBackgroundUrl = getAssetPath('/assets/landing-bg.jpg');
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState(FOOTBALL_MESSAGES[0]);
   const [stage, setStage] = useState<'loading' | 'swipe' | 'hiding' | 'hidden'>('loading');
 
   // Animation states
   const [ballTransform, setBallTransform] = useState('');
-  const [titleTransform, setTitleTransform] = useState('');
   const [containerOpacity, setContainerOpacity] = useState(1);
   const [ballOpacity, setBallOpacity] = useState(0);
   const [isShooting, setIsShooting] = useState(false);
+
+  // Tip cycling
+  const [tipDisplayed, setTipDisplayed] = useState(0);
+  const [tipOpacity, setTipOpacity] = useState(1);
+
+  useEffect(() => {
+    if (stage !== 'swipe') return;
+    const t = setInterval(() => {
+      setTipOpacity(0);
+      setTimeout(() => {
+        setTipDisplayed((i) => (i + 1) % TIPS.length);
+        setTipOpacity(1);
+      }, 350);
+    }, 3600);
+    return () => clearInterval(t);
+  }, [stage]);
 
   // Swipe logic
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -57,9 +79,6 @@ export function LoadingScreen() {
     }
   });
 
-  // When the game-over modal appears, we must not be sitting on top of the
-  // canvas demanding a tap/swipe (covers the "already submitted" short-circuit
-  // and any other path that opens the modal before loading finishes).
   useGameEvent('SHOW_GAME_OVER_MODAL', () => {
     setStage('hidden');
   });
@@ -71,10 +90,10 @@ export function LoadingScreen() {
 
   const handlePointerDown = (e: React.PointerEvent | React.TouchEvent) => {
     if (stage !== 'swipe') return;
-    
+
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.PointerEvent).clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.PointerEvent).clientY;
-    
+
     swipeStartRef.current = { x: clientX, y: clientY };
     swipeStartTimeRef.current = Date.now();
   };
@@ -91,8 +110,7 @@ export function LoadingScreen() {
     const duration = Date.now() - swipeStartTimeRef.current;
     const speed = distance / (duration || 1);
 
-    // Swipe detection (simple threshold)
-    if (distance > 50 && deltaY < -30) { // Swipe up
+    if (distance > 50 && deltaY < -30) {
       animateShot(deltaX, deltaY, speed);
     }
 
@@ -105,27 +123,20 @@ export function LoadingScreen() {
     const translateY = -window.innerHeight * 0.8;
     const rotation = (deltaX / Math.abs(deltaX || 1)) * 720;
 
-    // 1. Stop bounce first
     setIsShooting(true);
-
-    // Unlock audio on first user gesture (swipe)
     gameEventBus.emit({ type: 'UNLOCK_AUDIO' });
 
-    // 2. Start animation in next frame
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setBallTransform(`translate(${translateX}px, ${translateY}px) scale(0.3) rotate(${rotation}deg)`);
-        setTitleTransform('translateY(-150px)');
-
-        // Start game
-        gameEventBus.emit({ type: 'GAME_STARTED' });
 
         setTimeout(() => {
           setContainerOpacity(0);
           setTimeout(() => {
             setStage('hidden');
-          }, 600);
-        }, 500);
+            gameEventBus.emit({ type: 'GAME_STARTED' });
+          }, 300);
+        }, 250);
       });
     });
   };
@@ -133,34 +144,25 @@ export function LoadingScreen() {
   if (stage === 'hidden') return null;
 
   return (
-    <div 
-      className={`loading-screen fixed inset-0 z-[20] flex w-full h-[100dvh] flex-col items-center justify-start pt-[18vh] transition-opacity duration-500 ease-out text-white overflow-hidden ${stage === 'hiding' ? 'pointer-events-none' : ''}`}
+    <div
+      className={`loading-screen fixed inset-0 z-[20] flex w-full h-[100dvh] flex-col items-center justify-start pt-[18vh] transition-opacity duration-300 ease-out text-white overflow-hidden ${stage === 'hiding' ? 'pointer-events-none' : ''}`}
       style={{
         opacity: containerOpacity,
         backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.25)), url("${loadingBackgroundUrl}")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
-      } as any}
+      } as React.CSSProperties}
     >
-      {/* Title Section */}
-      <div 
-        className="loading-screen__title mb-20 text-center animate-fade-in-down-large transition-all duration-800 ease-out"
-        style={{ transform: titleTransform, opacity: titleTransform ? 0 : 1 }}
-      >
-        <h1 className="mx-6 text-[48px] leading-tight font-extrabold tracking-tight text-white [text-shadow:0_4px_14px_rgba(0,0,0,0.25)]">
-          Kick Off with<br />Coca-Cola
-        </h1>
-      </div>
 
-      {/* Stage 1: Progress */}
-      <div 
+      {/* Stage 1: Progress bar */}
+      <div
         className="loading-screen__stage1-container absolute left-1/2 bottom-[80px] -translate-x-1/2 flex w-[500px] max-w-[80vw] flex-col items-center gap-12 transition-opacity duration-300 ease-out"
         style={{ opacity: stage === 'loading' ? 1 : 0, pointerEvents: stage === 'loading' ? 'auto' : 'none' }}
       >
         <div className="loading-screen__progress-container relative w-full">
           <div className="loading-screen__progress-bar relative h-5 w-full overflow-hidden rounded-full bg-black/30 backdrop-blur-sm border-2 border-white/20 shadow-inner">
-            <div 
+            <div
               className="loading-screen__progress-fill relative h-full rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.7),0_0_20px_rgba(74,144,226,0.5)] transition-[width] duration-300 ease-out"
               style={{ width: `${progress}%` }}
             >
@@ -177,23 +179,36 @@ export function LoadingScreen() {
       </div>
 
       {/* Stage 2: Swipe to Start (Soccer Ball) */}
-      <div 
+      <div
         className="loading-screen__soccer-ball-container absolute left-1/2 bottom-[10vh] -translate-x-1/2 flex w-[min(90vw,360px)] flex-col items-center gap-8 px-4 transition-opacity duration-1000 z-[35]"
         style={{ opacity: ballOpacity, pointerEvents: 'none' }}
       >
-        <Image 
+        <Image
           src={getAssetPath('/assets/soccer_ball.png')}
           width={72}
-          height={72} 
-          alt="Soccer Ball" 
+          height={72}
+          alt="Soccer Ball"
           className={`loading-screen__soccer-ball w-[72px] h-[72px] cursor-pointer drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)] ${!isShooting ? 'animate-bounce' : ''}`}
-          style={{ 
-            transform: ballTransform, 
-            transition: isShooting ? 'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none' 
+          style={{
+            transform: ballTransform,
+            transition: isShooting ? 'transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none'
           }}
         />
         <div className="animate-pulse whitespace-nowrap text-center text-[20px] font-bold text-white [text-shadow:0_1px_4px_rgba(0,0,0,0.2)] font-russo">
           Swipe up to Start
+        </div>
+
+        {/* Tip card */}
+        <div className="rounded-2xl border border-white/20 bg-black/40 backdrop-blur-sm shadow-[0_4px_20px_rgba(0,0,0,0.4)] w-full">
+          <div
+            className="flex items-start gap-2 px-4 py-3"
+            style={{ opacity: tipOpacity, transition: 'opacity 0.3s ease' }}
+          >
+            <span className="shrink-0 text-[12px] font-black uppercase tracking-widest text-yellow-300">Tip:</span>
+            <p className="text-[13px] font-semibold leading-snug text-white/90 tracking-wide">
+              {TIPS[tipDisplayed]}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -207,14 +222,6 @@ export function LoadingScreen() {
           onTouchEnd={handlePointerUp}
         />
       )}
-      {/* Rating Badge */}
-      {/* <Image
-        src={getAssetPath('/assets/GRAC_ALL.png')}
-        alt="Rating"
-        width={60}
-        height={60}
-        className="loading-screen__rating-badge absolute right-[16px] bottom-[16px] w-[60px] h-[60px] opacity-90 animate-fade-in z-[25]"
-      /> */}
     </div>
   );
 }

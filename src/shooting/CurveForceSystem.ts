@@ -83,7 +83,7 @@ export class CurveForceSystem {
     const speed = ballBody.velocity.length();
     const speedFactor = Math.min(speedReference > 0 ? speed / speedReference : 1, speedMaxFactor);
     const timeFactor = Math.max(0, 1 - elapsedTime / duration);
-    const direction = -analysis.curveDirection;
+    const direction = analysis.curveDirection;
     const curveStrength = analysis.curveAmount * speedFactor * timeFactor * baseStrength;
 
 
