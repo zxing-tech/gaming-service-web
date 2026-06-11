@@ -1,9 +1,11 @@
 export interface UserDetail {
-  c_score: number | null;
+  // Number for a recorded score, or — once the player wins a code-backed reward —
+  // the voucher code string we wrote back to Grab. Null/undefined = never played.
+  c_score: number | string | null;
   c_merchant_code: string;
   // Reward this user already received (first-score-wins), recorded on a prior
   // session. Used to show their original prize on the game-over screen.
-  lastReward?: { label: string; token: string | null } | null;
+  lastReward?: { label: string; token: string | null; score: number | null } | null;
 }
 
 // Reward awarded by the backend from the admin-configured inventory.
@@ -13,6 +15,8 @@ export interface AwardedReward {
   label: string;
   valueText: string;
   tokenId: string;
+  // Redeemable Grab URL for a code-backed voucher (null for synthetic tokens).
+  giftLink?: string | null;
 }
 
 // Outcome of submitting a score. `resolved` = backend authoritatively decided

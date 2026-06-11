@@ -83,19 +83,23 @@ export async function loadGame(params?: { score?: number; uuid?: string }) {
   if (params?.uuid) {
     console.log(`🧪 Using uuid override from ?uuid= : ${params.uuid.substring(0, 8)}...`);
   }
-  // Existing recorded score (if any). Used to short-circuit straight to the
-  // game-over screen when the user has already submitted (first-score-wins).
-  let existingScore: number | null = null;
-  let lastReward: { label: string; token: string | null } | null = null;
+  // Whether this user has already used their one play (first-score-wins). A
+  // played user's Grab record holds a value: a numeric score, OR — once they win
+  // a code-backed reward — the voucher code STRING we wrote back. Both count.
+  // (A brand-new user returns c_score null/undefined.)
+  let hasPlayed = false;
+  let displayScore = 0;
+  let lastReward: { label: string; token: string | null; score: number | null } | null = null;
   if (uuid) {
     try {
       const user = await BackendClient.getUser(uuid);
       console.log(`✅ Backend user loaded: c_score=${user.c_score}, merchant=${user.c_merchant_code}`);
-      // Only a real number counts as an existing score. Grab can return c_score
-      // as undefined (field absent) for a brand-new user — `undefined !== null`
-      // would otherwise short-circuit to game-over with an undefined score.
-      existingScore = typeof user.c_score === 'number' ? user.c_score : null;
+      hasPlayed = user.c_score !== null && user.c_score !== undefined;
       lastReward = user.lastReward ?? null;
+      // The number to show on the game-over screen: the score if c_score is
+      // still numeric, else the score we logged alongside the awarded voucher.
+      displayScore =
+        typeof user.c_score === 'number' ? user.c_score : (lastReward?.score ?? 0);
     } catch (err) {
       console.error('❌ Backend getUser failed; continuing without persistence.', err);
     }
@@ -103,13 +107,13 @@ export async function loadGame(params?: { score?: number; uuid?: string }) {
     console.warn('ℹ️ No Toss uuid available — running without backend persistence.');
   }
 
-  if (existingScore !== null) {
-    console.log(`🏁 Score already submitted (${existingScore}). Skipping game and showing game-over screen.`);
+  if (hasPlayed) {
+    console.log(`🏁 Already played (c_score set). Skipping game and showing game-over screen.`);
     const { gameEventBus } = await import('../../app/lib/gameEventBus');
     gameEventBus.emit({
       type: 'SHOW_GAME_OVER_MODAL',
-      score: existingScore,
-      points: existingScore,
+      score: displayScore,
+      points: displayScore,
       // Show the reward they originally received, not a placeholder.
       tokenId: lastReward?.token ?? '-',
       redeemedReward: lastReward?.label ?? 'Not Redeemed',
