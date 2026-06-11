@@ -9,7 +9,7 @@ export const PLAYERS_CONFIG = {
     assetUrl: getAssetPath('/assets/models/Strike Foward Jog (6).glb'),
     idleAssetUrl: getAssetPath('/assets/models/Offensive Idle (4).glb'),
     sourceFormat: 'gltf',
-    yOffset: 0,
+    yOffset: 0.08,
     strikerOffset: { x: -0.26, z: 1.18 },
     /** Jersey decals are baked into the shirt's UV-mapped texture so they deform with skinning
      * and shade like the rest of the cloth (no floating sticker look). */

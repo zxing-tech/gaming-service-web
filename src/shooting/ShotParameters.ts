@@ -68,10 +68,11 @@ function resolveBallisticTiming(analysis: ShotAnalysis, tierId: TierId): { minTi
 export function calculateShotParameters(
   normalized: NormalizedSwipeData,
   analysis: ShotAnalysis,
-  tierId: TierId = 1
+  tierId: TierId = 1,
+  trailEndWorld?: THREE.Vector3 | null
 ): ShotParameters {
 
-  const targetPosition = calculateTargetPosition(normalized, analysis, tierId);
+  const targetPosition = calculateTargetPosition(normalized, analysis, tierId, trailEndWorld);
 
 
   const direction = new THREE.Vector3()
@@ -111,17 +112,27 @@ export function calculateShotParameters(
 function calculateTargetPosition(
   normalized: NormalizedSwipeData,
   analysis: ShotAnalysis,
-  tierId: TierId
+  tierId: TierId,
+  trailEndWorld?: THREE.Vector3 | null
 ): THREE.Vector3 {
   const b = getShotTargetBounds(tierId);
   const g = getGoalConfigForViewport();
 
-  const horizontalRatio = THREE.MathUtils.clamp(normalized.horizontalDistance / 200, -1, 1);
-  const normalizedHorizontal = (horizontalRatio + 1) * 0.5; // -1~1 -> 0~1
-  const baseTargetX = THREE.MathUtils.lerp(b.xMin, b.xMax, normalizedHorizontal);
+  let baseTargetX: number;
+  let baseTargetY: number;
 
-  const clampedHeightFactor = THREE.MathUtils.clamp(analysis.heightFactor, 0, 1);
-  const baseTargetY = THREE.MathUtils.lerp(b.yMin, b.yMax, clampedHeightFactor);
+  if (trailEndWorld) {
+    // The swipe trail is rendered at the goal plane. Use the trail endpoint world position
+    // directly so the ball flies exactly where the trail points.
+    baseTargetX = trailEndWorld.x;
+    baseTargetY = trailEndWorld.y;
+  } else {
+    const horizontalRatio = THREE.MathUtils.clamp(normalized.horizontalDistance / 200, -1, 1);
+    const normalizedHorizontal = (horizontalRatio + 1) * 0.5; // -1~1 -> 0~1
+    baseTargetX = THREE.MathUtils.lerp(b.xMin, b.xMax, normalizedHorizontal);
+    const clampedHeightFactor = THREE.MathUtils.clamp(analysis.heightFactor, 0, 1);
+    baseTargetY = THREE.MathUtils.lerp(b.yMin, b.yMax, clampedHeightFactor);
+  }
 
   const targetZ = b.z;
   const { targetX, targetY } = applyTierAccuracyToTarget(
