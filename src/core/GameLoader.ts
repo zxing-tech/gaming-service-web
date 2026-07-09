@@ -181,6 +181,18 @@ export async function loadGame(params?: { score?: number; uuid?: string }) {
           console.error('❌ Backend updateScore failed', err);
         });
     });
+
+    // If the player leaves before finishing (closes the in-app webview /
+    // navigates away), beacon the backend so their in-progress session gets a
+    // real end time — otherwise it hangs In Play until the 2-min sweep and shows
+    // no duration. Skip if they already finished this session. pagehide is the
+    // reliable "really leaving" signal (unlike visibilitychange, which also
+    // fires on a brief background where the game just pauses & resumes).
+    window.addEventListener('pagehide', (e: PageTransitionEvent) => {
+      if (e.persisted) return; // entering bfcache — may come back, don't abandon
+      if (scoreSubmitted) return; // finished normally; nothing to abandon
+      BackendClient.reportLeave(uuid);
+    });
   }
 
   // Apps in Toss guideline: ensure audio does not keep playing in background.

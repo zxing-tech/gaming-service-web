@@ -62,4 +62,21 @@ export class BackendClient {
     };
     return { resolved: data.rewardResolved ?? false, reward: data.reward ?? null };
   }
+
+  // Best-effort "player left before finishing" beacon. Uses sendBeacon so it
+  // survives page unload (falls back to keepalive fetch). The backend stamps a
+  // real end time on the in-progress session so drop-offs get an accurate
+  // duration. Fire-and-forget — no response is read.
+  static reportLeave(uuid: string): void {
+    const url = `${BASE_URL}/game-user/${encodeURIComponent(uuid)}/leave`;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        navigator.sendBeacon(url);
+      } else {
+        void fetch(url, { method: 'POST', keepalive: true });
+      }
+    } catch {
+      // Never let a beacon failure affect unload.
+    }
+  }
 }
