@@ -42,7 +42,7 @@ export interface ShotResult {
 
 
  */
-export function executeShot(swipeData: any, tierId: TierId = 1): ShotResult {
+export function executeShot(swipeData: any, tierId: TierId = 1, trailEndWorld?: THREE.Vector3 | null): ShotResult {
   // Step 1: Normalize swipe
 
   const normalized = normalizeSwipeData(swipeData);
@@ -53,7 +53,7 @@ export function executeShot(swipeData: any, tierId: TierId = 1): ShotResult {
 
   // Step 3: Calculate shot parameters
 
-  const shotParams = calculateShotParameters(normalized, analysis, tierId);
+  const shotParams = calculateShotParameters(normalized, analysis, tierId, trailEndWorld ?? null);
 
   // Step 4: Calculate initial velocity
 

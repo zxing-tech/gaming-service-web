@@ -74,7 +74,7 @@ export const TIER_DIFFICULTY_CONFIGS: Record<TierId, TierDifficultyConfig> = {
     tierId: 3,
     tierName: 'Tier 3',
     difficultyName: 'Hard',
-    unlockBestScore: 12,
+    unlockBestScore: 16,
     difficultyAnchorScore: 10,
     keeperPatrolSpeed: 2.05,
     keeperPatrolRange: [-K, K],

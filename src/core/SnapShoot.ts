@@ -643,8 +643,8 @@ export class SnapShoot {
 
   /** Auto tier ramp by current run score. */
   private resolveTierByScore(score: number): TierId {
-    // 2 tiers: Medium (0–19), Hard (20+)
-    if (score >= 20) return 3;
+    // 2 tiers: Medium (0–15), Hard (16+)
+    if (score >= 16) return 3;
     return 1;
   }
 
@@ -708,8 +708,12 @@ export class SnapShoot {
   private handleShoot(params: { swipeData: any; worldPositions: THREE.Vector3[] | null }): void {
     const { swipeData } = params;
 
+    // Project the swipe endpoint onto the goal plane so the ball flies toward where the
+    // trail points. getLastSwipeWorldPositions returns points cast at targetZ = GOAL_DEPTH.
+    const goalPlanePositions = this.inputController.getLastSwipeWorldPositions(this.camera, GOAL_DEPTH);
+    const trailEndWorld = goalPlanePositions ? goalPlanePositions[goalPlanePositions.length - 1] : null;
 
-    const shot = executeShot(swipeData, this.activeTierConfig.tierId);
+    const shot = executeShot(swipeData, this.activeTierConfig.tierId, trailEndWorld);
 
 
     this.shootingLog.debug(debugNormalizedSwipe(shot.debugInfo.normalized));
@@ -771,8 +775,8 @@ export class SnapShoot {
     this.isShotInProgress = true;
     this.keeperCatchHandledForCurrentShot = false;
     this.hasScored = false;
-    // 80% of shots pass through the keeper — only 20% are actually saved.
-    this.keeperPassThroughShot = Math.random() > 0.20;
+    // 30% of shots pass through the keeper — 70% are actually saved.
+    this.keeperPassThroughShot = Math.random() > 0.70;
     // Hide swipe ribbon as soon as shot is committed.
     this.inputController.clearSwipeTrailDisplay();
 
